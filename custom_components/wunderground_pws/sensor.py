@@ -40,6 +40,7 @@ from .const import (
     ATTR_WIND_GUST,
     ATTR_WIND_BEARING,
     ATTR_WIND_COMPASS,
+    ATTR_WIND_COMPASS_HU,
     ATTR_HEAT_INDEX,
     ATTR_PRECIPITATION,
     ATTR_PRECIPITATION_RATE,
@@ -137,9 +138,15 @@ SENSOR_DESCRIPTIONS: tuple[WundergroundSensorEntityDescription, ...] = (
     WundergroundSensorEntityDescription(
         key="wind_bearing",
         data_key=ATTR_WIND_BEARING,
-        name="Szélirány",
+        name="Szélirány (fok)",
         native_unit_of_measurement=DEGREE,
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+    WundergroundSensorEntityDescription(
+        key="wind_compass_hu",
+        data_key=ATTR_WIND_COMPASS_HU,
+        name="Szélirány (magyar)",
+        icon="mdi:compass-rose",
     ),
     WundergroundSensorEntityDescription(
         key="precipitation_rate",
@@ -222,7 +229,7 @@ class WundergroundPWSSensor(CoordinatorEntity, SensorEntity):
             "identifiers": {(DOMAIN, coordinator.station_id)},
             "name": f"Wunderground PWS {coordinator.station_id}",
             "manufacturer": "Aiasz",
-            "model": "Wunderground PWS v1.1.0",
+            "model": "Wunderground PWS v1.2.0",
         }
 
     @property

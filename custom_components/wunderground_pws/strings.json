@@ -2,30 +2,32 @@
   "config": {
     "step": {
       "user": {
-        "title": "Wunderground PWS beallitasa",
-        "description": "Add meg a Weather Underground allomas azonositojat (pl. IKAPOS27) es az API kulcsodat.",
+        "title": "Wunderground PWS beállítása",
+        "description": "Add meg a Weather Underground állomás azonosítódat (pl. IKAPOS27) és az API kulcsodat. Az előrejelzési város megadásával a HA időjárás kártyán 7 napos előrejelzés jelenik meg.",
         "data": {
-          "station_id": "Allomas azonosito (pl. IKAPOS27)",
+          "station_id": "Állomás azonosító (pl. IKAPOS27)",
           "api_key": "API kulcs",
-          "scan_interval": "Frissitesi idokoz (perc)"
+          "scan_interval": "Frissítési időköz (perc)",
+          "city": "Előrejelzési város (pl. Kaposvár) — opcionális"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nem sikerult csatlakozni a WU API-hoz. Ellenorizd az allomas azonositot es az API kulcsot."
+      "cannot_connect": "Nem sikerült csatlakozni a WU API-hoz. Ellenőrizd az állomás azonosítót és az API kulcsot."
     },
     "abort": {
-      "already_configured": "Ez az allomas mar be van allitva."
+      "already_configured": "Ez az állomás már be van állítva."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Wunderground PWS beallitasok",
+        "title": "Wunderground PWS beállítások módosítása",
         "data": {
-          "station_id": "Allomas azonosito (pl. IKAPOS27)",
+          "station_id": "Állomás azonosító (pl. IKAPOS27)",
           "api_key": "API kulcs",
-          "scan_interval": "Frissitesi idokoz (perc)"
+          "scan_interval": "Frissítési időköz (perc)",
+          "city": "Előrejelzési város (pl. Kaposvár) — opcionális"
         }
       }
     }

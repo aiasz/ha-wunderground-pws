@@ -1,7 +1,7 @@
 """Constants for Wunderground PWS integration.
 
 Keszito: Aiasz
-Verzio: 1.1.2.0
+Verzio: 1.2.0
 """
 
 DOMAIN = "wunderground_pws"
@@ -10,12 +10,16 @@ DEFAULT_STATION_ID = "IKAPOS27"
 DEFAULT_SCAN_INTERVAL = 5  # minutes
 MIN_SCAN_INTERVAL = 1
 MAX_SCAN_INTERVAL = 60
+DEFAULT_CITY = ""
 
 WU_API_URL = "https://api.weather.com/v2/pws/observations/current"
+OPEN_METEO_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
+OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 CONF_STATION_ID = "station_id"
 CONF_API_KEY = "api_key"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_CITY = "city"
 
 ATTR_TEMPERATURE = "temperature"
 ATTR_FEELS_LIKE = "feels_like"
