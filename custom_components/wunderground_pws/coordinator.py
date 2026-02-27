@@ -1,7 +1,7 @@
 """Data coordinator for Wunderground PWS integration (API-based).
 
 Keszito: Aiasz
-Verzio: 1.1.0
+Verzio: 1.2.0
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import enrich_observation
+from .api import enrich_observation, fetch_open_meteo_forecast
 from .const import (
     DOMAIN,
     WU_API_URL,
@@ -34,6 +34,7 @@ from .const import (
     ATTR_WIND_GUST,
     ATTR_WIND_BEARING,
     ATTR_WIND_COMPASS,
+    ATTR_WIND_COMPASS_HU,
     ATTR_PRECIPITATION,
     ATTR_PRECIPITATION_RATE,
     ATTR_SOLAR_RADIATION,
@@ -46,23 +47,25 @@ from .const import (
     ATTR_COUNTRY,
     ATTR_ELEVATION_M,
     ATTR_CONDITION,
+    ATTR_CLOUD_BASE,
+    ATTR_ABSOLUTE_HUMIDITY,
+    ATTR_WIND_CHILL,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class WundergroundPWSCoordinator(DataUpdateCoordinator):
-    """Coordinator to fetch data from Wunderground PWS API."""
+    """Coordinator to fetch data from Wunderground PWS API + Open-Meteo forecast."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.station_id: str = entry.options.get(CONF_STATION_ID, entry.data[CONF_STATION_ID])
         self.api_key: str = entry.options.get(CONF_API_KEY, entry.data[CONF_API_KEY])
-
         scan_interval: int = entry.options.get(
             CONF_SCAN_INTERVAL,
             entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         )
-
+        self.forecast_data: list[dict[str, Any]] = []
         super().__init__(
             hass,
             _LOGGER,
@@ -71,7 +74,7 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch and normalize observation data from WU API."""
+        """Fetch and normalize observation data from WU API + forecast from Open-Meteo."""
         session = async_get_clientsession(self.hass)
         params = {
             "stationId": self.station_id,
@@ -79,7 +82,6 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
             "units": "e",
             "apiKey": self.api_key,
         }
-
         try:
             async with asyncio.timeout(30):
                 async with session.get(WU_API_URL, params=params) as resp:
@@ -114,13 +116,30 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
             ATTR_WIND_GUST: enriched.get("wind_gust"),
             ATTR_WIND_BEARING: enriched.get("wind_dir_deg"),
             ATTR_WIND_COMPASS: enriched.get("wind_dir_compass"),
+            ATTR_WIND_COMPASS_HU: enriched.get("wind_dir_compass_hu"),
             ATTR_PRECIPITATION: enriched.get("precipitation"),
             ATTR_PRECIPITATION_RATE: enriched.get("precipitation_rate"),
             ATTR_SOLAR_RADIATION: enriched.get("solar_radiation"),
             ATTR_UV_INDEX: enriched.get("uv"),
+            ATTR_CLOUD_BASE: enriched.get("cloud_base"),
+            ATTR_ABSOLUTE_HUMIDITY: enriched.get("absolute_humidity"),
+            ATTR_WIND_CHILL: enriched.get("wind_chill"),
         }
 
         data[ATTR_CONDITION] = self._determine_condition(data)
+
+        # Fetch Open-Meteo forecast if lat/lon available
+        lat = data.get(ATTR_LAT)
+        lon = data.get(ATTR_LON)
+        if lat is not None and lon is not None:
+            try:
+                self.forecast_data = await fetch_open_meteo_forecast(lat, lon, session)
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.warning("Failed to fetch Open-Meteo forecast: %s", exc)
+                self.forecast_data = []
+        else:
+            self.forecast_data = []
+
         return data
 
     @staticmethod
