@@ -75,8 +75,8 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.station_id)},
             "name": f"Wunderground PWS {coordinator.station_id}",
-            "manufacturer": "Weather Underground",
-            "model": "Personal Weather Station",
+                        "manufacturer": "Aiasz",
+                        "model": "Wunderground PWS v1.1.0",
         }
 
     @property
