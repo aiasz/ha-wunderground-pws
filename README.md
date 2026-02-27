@@ -1,6 +1,6 @@
 # Wunderground PWS - Home Assistant Custom Integration
 
-**Keszito: Aiasz | Verzio: 1.1.0**
+**Keszito: Aiasz | Verzio: 1.2.0**
 
 Ez a custom integration lehetove teszi, hogy barmelyik [Weather Underground](https://www.wunderground.com/) szemelyes idojaras-allomas (PWS) adatait megjelenitsed a Home Assistantban — kozvetlenul az **official WU API**-n keresztul, imperial -> metrikus konverzioVal.
 
@@ -65,7 +65,7 @@ entity: weather.wunderground_pws_ikapos27
 
 ## Verziotortenet
 
-### v1.1.0 (2026-02-27)
+### v1.2.0 (2026-02-27)
 - **API-alapu adatlekerdes** (tobbe nincs HTML scraping)
 - Imperial -> metrikus konverzio (F->C, mph->km/h, inHg->hPa, inch->mm)
 - Szelirany fokkal ES egtajjal (pl. SE)
