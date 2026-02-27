@@ -1,4 +1,8 @@
-"""Wunderground PWS integration for Home Assistant."""
+"""Wunderground PWS integration for Home Assistant.
+
+Keszito: Aiasz
+Verzio: 1.1.0
+"""
 from __future__ import annotations
 
 import logging
@@ -29,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle options update."""
+    """Handle options update - reload the integration with new settings."""
     await hass.config_entries.async_reload(entry.entry_id)
 
 
