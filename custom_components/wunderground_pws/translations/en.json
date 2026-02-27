@@ -3,15 +3,16 @@
     "step": {
       "user": {
         "title": "Set up Wunderground PWS",
-        "description": "Enter the Weather Underground personal weather station dashboard URL.",
+        "description": "Enter your Weather Underground station ID (e.g. IKAPOS27) and your API key.",
         "data": {
-          "pws_url": "PWS Dashboard URL",
+          "station_id": "Station ID (e.g. IKAPOS27)",
+          "api_key": "API Key",
           "scan_interval": "Update interval (minutes)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Could not connect to the URL. Please check it is correct."
+      "cannot_connect": "Could not connect to the WU API. Please check your station ID and API key."
     },
     "abort": {
       "already_configured": "This station is already configured."
@@ -22,7 +23,8 @@
       "init": {
         "title": "Wunderground PWS options",
         "data": {
-          "pws_url": "PWS Dashboard URL",
+          "station_id": "Station ID (e.g. IKAPOS27)",
+          "api_key": "API Key",
           "scan_interval": "Update interval (minutes)"
         }
       }
