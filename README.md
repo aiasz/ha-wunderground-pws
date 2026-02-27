@@ -1,64 +1,83 @@
-# Wunderground PWS – Home Assistant Custom Integration
+# Wunderground PWS - Home Assistant Custom Integration
 
-Ez a custom integration lehetővé teszi, hogy bármely [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait megjelenítsd a Home Assistantban.
+**Keszito: Aiasz | Verzio: 1.1.0**
 
-## Funkciók
+Ez a custom integration lehetove teszi, hogy barmelyik [Weather Underground](https://www.wunderground.com/) szemelyes idojaras-allomas (PWS) adatait megjelenitsed a Home Assistantban — kozvetlenul az **official WU API**-n keresztul, imperial -> metrikus konverzioVal.
 
-- **Változtatható URL**: bármely PWS dashboard URL megadható
-- **Állítható frissítési időköz**: 1–60 perc
-- **Weather entity**: kompatibilis a HA időjárás kártyákkal
-- **Sensor entitások**: hőmérséklet, páratartalom, szél, csapadék, UV, napenergia, stb.
-- **Options Flow**: URL és frissítés menet közben módosítható, újraindítás nélkül
+---
 
-## Telepítés
+## Funkciok
 
-### HACS (ajánlott)
+- **Allitható allomas azonosito**: barmely WU PWS allomas azonosito megadhato (pl. IKAPOS27)
+- **API kulcs**: a WU API kulcs a UI-ban kerheto be
+- **Allithato frissitesi idokoz**: 1-60 perc kozott, menet kozben is modosithato
+- **Weather entity**: kompatibilis a HA idojaras kartyakkal
+- **12 sensor entitas**: homerseklet, erzett homerseklet, harmatpont, paratartalom, legnyomas, szelsebesség, szellokes, szelfok (fokkal es egtajjal), csapadek, csapadek-intenzitas, napenergia, UV-index
+- **Imperial -> metrikus konverzio**: F->C, mph->km/h, inHg->hPa, inch->mm
+- **Options Flow**: beallitasok ujrainditas nelkul modosíthatoak
 
-1. HACS → Integrations → `+` → `Custom repositories`
-2. Add hozzá ezt a repo URL-t: `https://github.com/aiasz/ha-wunderground-pws`
-3. Kategória: `Integration`
-4. Telepítés után indítsd újra a HA-t
+---
 
-### Manuális
+## Adatok forrasa
 
-1. Másold a `custom_components/wunderground_pws` mappát a HA `config/custom_components/` könyvtárába
-2. Indítsd újra a Home Assistantot
+Az integracioa a WU PWS "Current Observations" API vegpontot hasznáalja:
+```
+https://api.weather.com/v2/pws/observations/current
+```
+Parameterek: `stationId`, `format=json`, `units=e` (imperial, majd konvertalva metrikusra), `apiKey`
 
-## Beállítás
+---
 
-1. **Settings → Devices & Services → Add Integration**
-2. Keress rá: `Wunderground PWS`
-3. Add meg az URL-t (alapértelmezett: `https://www.wunderground.com/dashboard/pws/IKAPOS27`)
-4. Add meg a frissítési időközt percben (1–60)
+## Telepites
 
-## Sensor entitások
+### HACS (ajanlo tt)
+1. HACS -> Integrations -> `+` -> `Custom repositories`
+2. Add hozza: `https://github.com/aiasz/ha-wunderground-pws` (kategoria: Integration)
+3. Telepites utan inditsd ujra a HA-t
 
-| Entitás | Leírás | Egység |
-|---|---|---|
-| `sensor.temperature` | Hőmérséklet | °C |
-| `sensor.humidity` | Páratartalom | % |
-| `sensor.pressure` | Légnyomás | hPa |
-| `sensor.wind_speed` | Szélsebesség | km/h |
-| `sensor.wind_gust` | Széllökés | km/h |
-| `sensor.wind_bearing` | Szélirány | ° |
-| `sensor.precipitation` | Napi csapadék | mm |
-| `sensor.precipitation_rate` | Csapadék intenzitás | mm/h |
-| `sensor.solar_radiation` | Napsugárzás | W/m² |
-| `sensor.uv_index` | UV index | UV |
-| `sensor.dew_point` | Harmatpont | °C |
-| `sensor.feels_like` | Érzett hőmérséklet | °C |
+### Manualis
+1. Masold a `custom_components/wunderground_pws` mappat a HA `config/custom_components/` konyvtaraba
+2. Inditsd ujra a Home Assistantot
 
-## Időjárás kártya
+---
+
+## Beallitas
+
+1. **Settings -> Devices & Services -> Add Integration**
+2. Keresd: `Wunderground PWS`
+3. Add meg az **Allomas azonositot** (pl. `IKAPOS27`)
+4. Add meg az **API kulcsot** (WU fiokodban talalhato)
+5. Add meg a **frissitesi idokozt** percben (1-60)
+
+### Beallitasok modositasa
+**Settings -> Devices & Services -> Wunderground PWS -> Configure**
+
+---
+
+## Idojaras kartya
 
 ```yaml
 type: weather-forecast
 entity: weather.wunderground_pws_ikapos27
 ```
 
-## Beállítások módosítása
+---
 
-Settings → Devices & Services → Wunderground PWS → **Configure** gomb → URL és frissítési időköz módosítható.
+## Verziotortenet
+
+### v1.1.0 (2026-02-27)
+- **API-alapu adatlekerdes** (tobbe nincs HTML scraping)
+- Imperial -> metrikus konverzio (F->C, mph->km/h, inHg->hPa, inch->mm)
+- Szelirany fokkal ES egtajjal (pl. SE)
+- API kulcs bekerult a UI beallitasba
+- BeautifulSoup fuggoseg eltavolitva
+- Keszito: Aiasz
+
+### v1.0.0
+- Elso kiadás - HTML dashboard scraping
+
+---
 
 ## Licenc
 
-MIT
+MIT License - Keszito: Aiasz
