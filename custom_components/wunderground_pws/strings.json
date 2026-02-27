@@ -2,28 +2,30 @@
   "config": {
     "step": {
       "user": {
-        "title": "Wunderground PWS beállítása",
-        "description": "Add meg a Weather Underground személyes állomás dashboard URL-jét.",
+        "title": "Wunderground PWS beallitasa",
+        "description": "Add meg a Weather Underground allomas azonositojat (pl. IKAPOS27) es az API kulcsodat.",
         "data": {
-          "pws_url": "PWS Dashboard URL",
-          "scan_interval": "Frissítési időköz (perc)"
+          "station_id": "Allomas azonosito (pl. IKAPOS27)",
+          "api_key": "API kulcs",
+          "scan_interval": "Frissitesi idokoz (perc)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nem sikerült csatlakozni az URL-hez. Ellenőrizd, hogy helyes-e."
+      "cannot_connect": "Nem sikerult csatlakozni a WU API-hoz. Ellenorizd az allomas azonositot es az API kulcsot."
     },
     "abort": {
-      "already_configured": "Ez az állomás már be van állítva."
+      "already_configured": "Ez az allomas mar be van allitva."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Wunderground PWS beállítások",
+        "title": "Wunderground PWS beallitasok",
         "data": {
-          "pws_url": "PWS Dashboard URL",
-          "scan_interval": "Frissítési időköz (perc)"
+          "station_id": "Allomas azonosito (pl. IKAPOS27)",
+          "api_key": "API kulcs",
+          "scan_interval": "Frissitesi idokoz (perc)"
         }
       }
     }
