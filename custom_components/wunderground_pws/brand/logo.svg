@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Background -->
+  <rect width="400" height="120" rx="12" fill="#1c2e4a"/>
+  <!-- Icon area: sun + cloud + rain -->
+  <!-- Sun -->
+  <circle cx="60" cy="42" r="16" fill="#f5c518"/>
+  <!-- Sun rays -->
+  <line x1="60" y1="18" x2="60" y2="24" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <line x1="60" y1="60" x2="60" y2="66" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <line x1="36" y1="42" x2="42" y2="42" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <line x1="78" y1="42" x2="84" y2="42" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <line x1="43" y1="25" x2="47" y2="29" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <line x1="73" y1="55" x2="77" y2="59" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <line x1="77" y1="25" x2="73" y2="29" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <line x1="47" y1="55" x2="43" y2="59" stroke="#f5c518" stroke-width="3" stroke-linecap="round"/>
+  <!-- Cloud -->
+  <ellipse cx="58" cy="72" rx="22" ry="14" fill="#c8d8e8"/>
+  <ellipse cx="76" cy="75" rx="16" ry="11" fill="#c8d8e8"/>
+  <ellipse cx="44" cy="77" rx="14" ry="10" fill="#c8d8e8"/>
+  <!-- Rain drops -->
+  <line x1="48" y1="90" x2="45" y2="100" stroke="#5b9bd5" stroke-width="3" stroke-linecap="round"/>
+  <line x1="61" y1="90" x2="58" y2="100" stroke="#5b9bd5" stroke-width="3" stroke-linecap="round"/>
+  <line x1="74" y1="90" x2="71" y2="100" stroke="#5b9bd5" stroke-width="3" stroke-linecap="round"/>
+  <!-- Text: Wunderground -->
+  <text x="115" y="52" font-family="Arial,sans-serif" font-size="28" font-weight="bold" fill="#ffffff">Wunderground</text>
+  <!-- Text: PWS Integration -->
+  <text x="115" y="80" font-family="Arial,sans-serif" font-size="20" fill="#7eb8e8">PWS Integration</text>
+  <!-- Text: version + author -->
+  <text x="115" y="105" font-family="Arial,sans-serif" font-size="13" fill="#8899aa">v1.1.0 | Keszito: Aiasz</text>
+</svg>
