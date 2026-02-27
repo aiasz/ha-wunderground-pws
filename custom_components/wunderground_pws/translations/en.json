@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Wunderground PWS",
+        "description": "Enter the Weather Underground personal weather station dashboard URL.",
+        "data": {
+          "pws_url": "PWS Dashboard URL",
+          "scan_interval": "Update interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the URL. Please check it is correct."
+    },
+    "abort": {
+      "already_configured": "This station is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wunderground PWS options",
+        "data": {
+          "pws_url": "PWS Dashboard URL",
+          "scan_interval": "Update interval (minutes)"
+        }
+      }
+    }
+  }
+}

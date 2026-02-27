@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wunderground PWS beállítása",
+        "description": "Add meg a Weather Underground személyes állomás dashboard URL-jét.",
+        "data": {
+          "pws_url": "PWS Dashboard URL",
+          "scan_interval": "Frissítési időköz (perc)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nem sikerült csatlakozni az URL-hez. Ellenőrizd, hogy helyes-e."
+    },
+    "abort": {
+      "already_configured": "Ez az állomás már be van állítva."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wunderground PWS beállítások",
+        "data": {
+          "pws_url": "PWS Dashboard URL",
+          "scan_interval": "Frissítési időköz (perc)"
+        }
+      }
+    }
+  }
+}
