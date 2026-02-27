@@ -31,7 +31,7 @@ from .const import (
     ATTR_HUMIDITY,
     ATTR_LAST_UPDATED,
     ATTR_PRECIPITATION_RATE,
-    ATTR_PRECIPITATION_TODAY,
+    ATTR_PRECIPITATION,
     ATTR_PRESSURE,
     ATTR_SOLAR_RADIATION,
     ATTR_STATION_ID,
@@ -113,7 +113,7 @@ SENSOR_DESCRIPTIONS: tuple[WundergroundSensorEntityDescription, ...] = (
     ),
     WundergroundSensorEntityDescription(
         key="precipitation_today",
-        data_key=ATTR_PRECIPITATION_TODAY,
+        data_key=ATTR_PRECIPITATION,
         name="Precipitation Today",
         native_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS,
         device_class=SensorDeviceClass.PRECIPITATION,
