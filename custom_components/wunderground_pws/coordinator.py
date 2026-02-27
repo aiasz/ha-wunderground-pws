@@ -51,6 +51,7 @@ from .const import (
     ATTR_CLOUD_BASE,
     ATTR_ABSOLUTE_HUMIDITY,
     ATTR_WIND_CHILL,
+    ATTR_HEAT_INDEX,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -130,6 +131,7 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
             ATTR_CLOUD_BASE: enriched.get("cloud_base"),
             ATTR_ABSOLUTE_HUMIDITY: enriched.get("absolute_humidity"),
             ATTR_WIND_CHILL: enriched.get("wind_chill"),
+            ATTR_HEAT_INDEX: enriched.get("heat_index"),
         }
 
         data[ATTR_CONDITION] = self._determine_condition(data)
