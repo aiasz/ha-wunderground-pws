@@ -119,10 +119,10 @@ class WundergroundPWSOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         current_station = self.config_entry.options.get(
-            CONF_STATION_ID, self.config_entry.data[CONF_STATION_ID]
+            CONF_STATION_ID, self.config_entry.data.get(CONF_STATION_ID, DEFAULT_STATION_ID)
         )
         current_key = self.config_entry.options.get(
-            CONF_API_KEY, self.config_entry.data[CONF_API_KEY]
+            CONF_API_KEY, self.config_entry.data.get(CONF_API_KEY, "")
         )
         current_interval = self.config_entry.options.get(
             CONF_SCAN_INTERVAL,
