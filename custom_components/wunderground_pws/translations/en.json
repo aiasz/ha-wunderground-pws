@@ -3,11 +3,12 @@
     "step": {
       "user": {
         "title": "Set up Wunderground PWS",
-        "description": "Enter your Weather Underground station ID (e.g. IKAPOS27) and your API key.",
+        "description": "Enter your Weather Underground station ID (e.g. IKAPOS27) and your API key. Optionally enter a forecast city to show a 7-day forecast on the HA weather card.",
         "data": {
           "station_id": "Station ID (e.g. IKAPOS27)",
           "api_key": "API Key",
-          "scan_interval": "Update interval (minutes)"
+          "scan_interval": "Update interval (minutes)",
+          "city": "Forecast city (e.g. Kaposvár) — optional"
         }
       }
     },
@@ -25,7 +26,8 @@
         "data": {
           "station_id": "Station ID (e.g. IKAPOS27)",
           "api_key": "API Key",
-          "scan_interval": "Update interval (minutes)"
+          "scan_interval": "Update interval (minutes)",
+          "city": "Forecast city (e.g. Kaposvár) — optional"
         }
       }
     }

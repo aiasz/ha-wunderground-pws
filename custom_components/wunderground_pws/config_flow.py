@@ -20,8 +20,10 @@ from .const import (
     CONF_STATION_ID,
     CONF_API_KEY,
     CONF_SCAN_INTERVAL,
+    CONF_CITY,
     DEFAULT_STATION_ID,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_CITY,
     MIN_SCAN_INTERVAL,
     MAX_SCAN_INTERVAL,
 )
@@ -54,6 +56,7 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_STATION_ID: station_id,
                         CONF_API_KEY: api_key,
                         CONF_SCAN_INTERVAL: interval,
+                        CONF_CITY: user_input.get(CONF_CITY, "").strip(),
                     },
                 )
             errors["base"] = "cannot_connect"
@@ -66,6 +69,7 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Coerce(int),
                     vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
                 ),
+                vol.Optional(CONF_CITY, default=DEFAULT_CITY): str,
             }
         )
 
@@ -124,6 +128,9 @@ class WundergroundPWSOptionsFlow(config_entries.OptionsFlow):
             CONF_SCAN_INTERVAL,
             self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         )
+        current_city = self.config_entry.options.get(
+            CONF_CITY, self.config_entry.data.get(CONF_CITY, DEFAULT_CITY)
+        )
 
         options_schema = vol.Schema(
             {
@@ -133,6 +140,7 @@ class WundergroundPWSOptionsFlow(config_entries.OptionsFlow):
                     vol.Coerce(int),
                     vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
                 ),
+                vol.Optional(CONF_CITY, default=current_city): str,
             }
         )
 

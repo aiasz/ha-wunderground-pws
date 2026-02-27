@@ -17,15 +17,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import enrich_observation, fetch_open_meteo_forecast
+from .api import enrich_observation, fetch_open_meteo_forecast, fetch_geocoding
 from .const import (
     DOMAIN,
     WU_API_URL,
     CONF_STATION_ID,
     CONF_API_KEY,
     CONF_SCAN_INTERVAL,
+    CONF_CITY,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STATION_ID,
+    DEFAULT_CITY,
     ATTR_TEMPERATURE,
     ATTR_FEELS_LIKE,
     ATTR_DEW_POINT,
@@ -68,11 +70,15 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
         self.api_key: str = entry.options.get(
             CONF_API_KEY, entry.data.get(CONF_API_KEY, "")
         )
+        self.city: str = entry.options.get(
+            CONF_CITY, entry.data.get(CONF_CITY, DEFAULT_CITY)
+        )
         scan_interval: int = entry.options.get(
             CONF_SCAN_INTERVAL,
             entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         )
         self.forecast_data: list[dict[str, Any]] = []
+        self.forecast_city: str = self.city  # resolved display name
         super().__init__(
             hass,
             _LOGGER,
@@ -136,12 +142,31 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
 
         data[ATTR_CONDITION] = self._determine_condition(data)
 
-        # Fetch Open-Meteo forecast if lat/lon available
-        lat = data.get(ATTR_LAT)
-        lon = data.get(ATTR_LON)
-        if lat is not None and lon is not None:
+        # Determine forecast lat/lon: prefer user-supplied city via geocoding,
+        # fall back to WU station coordinates
+        forecast_lat: float | None = None
+        forecast_lon: float | None = None
+
+        if self.city:
             try:
-                self.forecast_data = await fetch_open_meteo_forecast(lat, lon, session)
+                geo = await fetch_geocoding(self.city, session)
+                if geo:
+                    forecast_lat, forecast_lon = geo
+                    _LOGGER.debug(
+                        "Geocoding '%s' -> lat=%s lon=%s", self.city, forecast_lat, forecast_lon
+                    )
+                else:
+                    _LOGGER.warning("Geocoding found no result for city: %s", self.city)
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.warning("Geocoding error for '%s': %s", self.city, exc)
+
+        if forecast_lat is None or forecast_lon is None:
+            forecast_lat = data.get(ATTR_LAT)
+            forecast_lon = data.get(ATTR_LON)
+
+        if forecast_lat is not None and forecast_lon is not None:
+            try:
+                self.forecast_data = await fetch_open_meteo_forecast(forecast_lat, forecast_lon, session)
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.warning("Failed to fetch Open-Meteo forecast: %s", exc)
                 self.forecast_data = []

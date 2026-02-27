@@ -1,7 +1,7 @@
 """Weather platform for Wunderground PWS integration.
 
 Keszito: Aiasz
-Verzio: 1.1.0
+Verzio: 1.2.0
 """
 from __future__ import annotations
 
@@ -42,7 +42,11 @@ from .const import (
     ATTR_DEW_POINT,
     ATTR_FEELS_LIKE,
     ATTR_WIND_COMPASS,
+    ATTR_WIND_COMPASS_HU,
     ATTR_SOLAR_RADIATION,
+    ATTR_CLOUD_BASE,
+    ATTR_ABSOLUTE_HUMIDITY,
+    ATTR_WIND_CHILL,
 )
 from .coordinator import WundergroundPWSCoordinator
 
@@ -61,12 +65,12 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
     """Representation of a Wunderground PWS weather entity."""
 
     _attr_has_entity_name = True
-    _attr_name = "Idojaras"
+    _attr_name = "Időjárás"
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_native_pressure_unit = UnitOfPressure.HPA
     _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
     _attr_native_precipitation_unit = UnitOfLength.MILLIMETERS
-    _attr_supported_features = 0
+    _attr_supported_features = WeatherEntityFeature.FORECAST_DAILY
 
     def __init__(self, coordinator: WundergroundPWSCoordinator) -> None:
         """Initialize the weather entity."""
@@ -75,8 +79,8 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.station_id)},
             "name": f"Wunderground PWS {coordinator.station_id}",
-                        "manufacturer": "Aiasz",
-                        "model": "Wunderground PWS v1.1.0",
+            "manufacturer": "Aiasz",
+            "model": "Wunderground PWS v1.2.0",
         }
 
     @property
@@ -150,9 +154,28 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
             "dew_point": self.coordinator.data.get(ATTR_DEW_POINT),
             "feels_like": self.coordinator.data.get(ATTR_FEELS_LIKE),
             "wind_compass": self.coordinator.data.get(ATTR_WIND_COMPASS),
+            "wind_compass_hu": self.coordinator.data.get(ATTR_WIND_COMPASS_HU),
             "solar_radiation": self.coordinator.data.get(ATTR_SOLAR_RADIATION),
+            "cloud_base": self.coordinator.data.get(ATTR_CLOUD_BASE),
+            "absolute_humidity": self.coordinator.data.get(ATTR_ABSOLUTE_HUMIDITY),
+            "wind_chill": self.coordinator.data.get(ATTR_WIND_CHILL),
+            "forecast_city": self.coordinator.city or None,
         }
 
     async def async_forecast_daily(self) -> list[Forecast] | None:
-        """Return empty forecast - PWS has no forecast data."""
-        return None
+        """Return 7-day daily forecast from Open-Meteo."""
+        if not self.coordinator.forecast_data:
+            return None
+        result: list[Forecast] = []
+        for day in self.coordinator.forecast_data:
+            result.append(
+                Forecast(
+                    datetime=day["datetime"],
+                    native_temperature=day.get("temperature"),
+                    native_templow=day.get("templow"),
+                    native_precipitation=day.get("precipitation"),
+                    condition=day.get("condition"),
+                    cloud_coverage=day.get("cloud_coverage"),
+                )
+            )
+        return result

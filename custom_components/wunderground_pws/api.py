@@ -1,8 +1,8 @@
-"""Weather Underground PWS API helpers + Open-Meteo forecast.
+"""Weather Underground PWS API helpers + Open-Meteo forecast + geocoding.
 
 Converts imperial observations to metric units, enriches with calculated
-values (cloud base, absolute humidity, wind chill, Hungarian compass), 
-and fetches forecast from Open-Meteo API.
+values (cloud base, absolute humidity, wind chill, Hungarian compass),
+fetches geocoding from Open-Meteo and forecast from Open-Meteo API.
 
 Keszito: Aiasz
 Verzio: 1.2.0
@@ -14,6 +14,8 @@ import math
 from typing import Any, Dict
 
 import aiohttp
+
+from .const import OPEN_METEO_GEOCODING_URL, OPEN_METEO_FORECAST_URL
 
 
 def f_to_c(f: float) -> float:
@@ -171,11 +173,33 @@ def enrich_observation(obs: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+async def fetch_geocoding(
+    city: str, session: aiohttp.ClientSession
+) -> tuple[float, float] | None:
+    """Fetch lat/lon for a city name using Open-Meteo Geocoding API (free).
+
+    Returns (lat, lon) or None if not found.
+    """
+    params = {"name": city, "count": 1, "language": "hu", "format": "json"}
+    try:
+        async with asyncio.timeout(10):
+            async with session.get(OPEN_METEO_GEOCODING_URL, params=params) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+    except (asyncio.TimeoutError, aiohttp.ClientError, ValueError):
+        return None
+
+    results = data.get("results") or []
+    if not results:
+        return None
+    return float(results[0]["latitude"]), float(results[0]["longitude"])
+
+
 async def fetch_open_meteo_forecast(
     lat: float, lon: float, session: aiohttp.ClientSession
 ) -> list[Dict[str, Any]]:
     """Fetch 7-day forecast from Open-Meteo API."""
-    url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -185,7 +209,7 @@ async def fetch_open_meteo_forecast(
     }
     try:
         async with asyncio.timeout(15):
-            async with session.get(url, params=params) as resp:
+            async with session.get(OPEN_METEO_FORECAST_URL, params=params) as resp:
                 if resp.status != 200:
                     return []
                 data = await resp.json()
