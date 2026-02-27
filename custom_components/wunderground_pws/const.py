@@ -1,7 +1,7 @@
 """Constants for Wunderground PWS integration.
 
 Keszito: Aiasz
-Verzio: 1.1.0
+Verzio: 1.1.2.0
 """
 
 DOMAIN = "wunderground_pws"
@@ -32,6 +32,11 @@ ATTR_SOLAR_RADIATION = "solar_radiation"
 ATTR_UV_INDEX = "uv_index"
 ATTR_STATION_ID = "station_id"
 ATTR_LAST_UPDATED = "last_updated"
+ATTR_WIND_COMPASS_HU = "wind_compass_hu"
+ATTR_CLOUD_BASE = "cloud_base"
+ATTR_ABSOLUTE_HUMIDITY = "absolute_humidity"
+ATTR_WIND_CHILL = "wind_chill"
+ATTR_CLOUD_COVERAGE = "cloud_coverage"
 ATTR_LAT = "lat"
 ATTR_LON = "lon"
 ATTR_LOCATION_NAME = "location_name"
