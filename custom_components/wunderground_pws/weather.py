@@ -1,5 +1,11 @@
-"""Weather platform for Wunderground PWS integration."""
+"""Weather platform for Wunderground PWS integration.
+
+Keszito: Aiasz
+Verzio: 1.1.0
+"""
 from __future__ import annotations
+
+from typing import Any
 
 from homeassistant.components.weather import (
     WeatherEntity,
@@ -7,7 +13,12 @@ from homeassistant.components.weather import (
     Forecast,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfSpeed, UnitOfPressure, UnitOfTemperature, UnitOfLength
+from homeassistant.const import (
+    UnitOfSpeed,
+    UnitOfPressure,
+    UnitOfTemperature,
+    UnitOfLength,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -23,6 +34,15 @@ from .const import (
     ATTR_UV_INDEX,
     ATTR_CONDITION,
     ATTR_STATION_ID,
+    ATTR_LAST_UPDATED,
+    ATTR_LOCATION_NAME,
+    ATTR_COUNTRY,
+    ATTR_LAT,
+    ATTR_LON,
+    ATTR_DEW_POINT,
+    ATTR_FEELS_LIKE,
+    ATTR_WIND_COMPASS,
+    ATTR_SOLAR_RADIATION,
 )
 from .coordinator import WundergroundPWSCoordinator
 
@@ -34,39 +54,34 @@ async def async_setup_entry(
 ) -> None:
     """Set up Wunderground PWS weather entity."""
     coordinator: WundergroundPWSCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([WundergroundPWSWeather(coordinator, entry)])
+    async_add_entities([WundergroundPWSWeather(coordinator)])
 
 
 class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
-    """Representation of Wunderground PWS as a Weather entity."""
+    """Representation of a Wunderground PWS weather entity."""
 
-    _attr_supported_features = WeatherEntityFeature(0)
+    _attr_has_entity_name = True
+    _attr_name = "Idojaras"
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_pressure_unit = UnitOfPressure.HPA
+    _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
+    _attr_native_precipitation_unit = UnitOfLength.MILLIMETERS
+    _attr_supported_features = 0
 
-    def __init__(
-        self,
-        coordinator: WundergroundPWSCoordinator,
-        entry: ConfigEntry,
-    ) -> None:
+    def __init__(self, coordinator: WundergroundPWSCoordinator) -> None:
         """Initialize the weather entity."""
         super().__init__(coordinator)
-        station_id = coordinator.data.get(ATTR_STATION_ID, entry.entry_id)
-        self._attr_unique_id = f"{station_id}_weather"
-        self._attr_name = f"Wunderground PWS {station_id}"
-        self._attr_attribution = "Data provided by Weather Underground"
-        self._attr_native_temperature_unit = UnitOfTemperature.CELSIUS
-        self._attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
-        self._attr_native_pressure_unit = UnitOfPressure.HPA
-        self._attr_native_precipitation_unit = UnitOfLength.MILLIMETERS
+        self._attr_unique_id = f"{coordinator.station_id}_weather"
         self._attr_device_info = {
-            "identifiers": {(DOMAIN, station_id)},
-            "name": f"Wunderground PWS {station_id}",
+            "identifiers": {(DOMAIN, coordinator.station_id)},
+            "name": f"Wunderground PWS {coordinator.station_id}",
             "manufacturer": "Weather Underground",
             "model": "Personal Weather Station",
         }
 
     @property
     def condition(self) -> str | None:
-        """Return the weather condition."""
+        """Return the current weather condition."""
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get(ATTR_CONDITION)
@@ -121,6 +136,23 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
         return self.coordinator.data.get(ATTR_UV_INDEX)
 
     @property
-    def forecast(self) -> list[Forecast] | None:
-        """No forecast available from PWS."""
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes."""
+        if self.coordinator.data is None:
+            return {}
+        return {
+            "station_id": self.coordinator.data.get(ATTR_STATION_ID),
+            "location": self.coordinator.data.get(ATTR_LOCATION_NAME),
+            "country": self.coordinator.data.get(ATTR_COUNTRY),
+            "lat": self.coordinator.data.get(ATTR_LAT),
+            "lon": self.coordinator.data.get(ATTR_LON),
+            "last_updated": self.coordinator.data.get(ATTR_LAST_UPDATED),
+            "dew_point": self.coordinator.data.get(ATTR_DEW_POINT),
+            "feels_like": self.coordinator.data.get(ATTR_FEELS_LIKE),
+            "wind_compass": self.coordinator.data.get(ATTR_WIND_COMPASS),
+            "solar_radiation": self.coordinator.data.get(ATTR_SOLAR_RADIATION),
+        }
+
+    async def async_forecast_daily(self) -> list[Forecast] | None:
+        """Return empty forecast - PWS has no forecast data."""
         return None
