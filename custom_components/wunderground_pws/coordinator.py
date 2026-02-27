@@ -25,6 +25,7 @@ from .const import (
     CONF_API_KEY,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_STATION_ID,
     ATTR_TEMPERATURE,
     ATTR_FEELS_LIKE,
     ATTR_DEW_POINT,
@@ -59,8 +60,13 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
     """Coordinator to fetch data from Wunderground PWS API + Open-Meteo forecast."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        self.station_id: str = entry.options.get(CONF_STATION_ID, entry.data[CONF_STATION_ID])
-        self.api_key: str = entry.options.get(CONF_API_KEY, entry.data[CONF_API_KEY])
+        # Use .get() on entry.data to avoid KeyError for older entries
+        self.station_id: str = entry.options.get(
+            CONF_STATION_ID, entry.data.get(CONF_STATION_ID, DEFAULT_STATION_ID)
+        )
+        self.api_key: str = entry.options.get(
+            CONF_API_KEY, entry.data.get(CONF_API_KEY, "")
+        )
         scan_interval: int = entry.options.get(
             CONF_SCAN_INTERVAL,
             entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),

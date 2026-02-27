@@ -1,60 +1,60 @@
 # Wunderground PWS - Home Assistant Custom Integration
 
-**Keszito: Aiasz | Verzio: 1.2.0**
+**Készítő: Aiasz | Verzió: 1.2.0**
 
-Ez a custom integration lehetove teszi, hogy barmelyik [Weather Underground](https://www.wunderground.com/) szemelyes idojaras-allomas (PWS) adatait megjelenitsed a Home Assistantban — kozvetlenul az **official WU API**-n keresztul, imperial -> metrikus konverzioVal.
-
----
-
-## Funkciok
-
-- **Allitható allomas azonosito**: barmely WU PWS allomas azonosito megadhato (pl. IKAPOS27)
-- **API kulcs**: a WU API kulcs a UI-ban kerheto be
-- **Allithato frissitesi idokoz**: 1-60 perc kozott, menet kozben is modosithato
-- **Weather entity**: kompatibilis a HA idojaras kartyakkal
-- **12 sensor entitas**: homerseklet, erzett homerseklet, harmatpont, paratartalom, legnyomas, szelsebesség, szellokes, szelfok (fokkal es egtajjal), csapadek, csapadek-intenzitas, napenergia, UV-index
-- **Imperial -> metrikus konverzio**: F->C, mph->km/h, inHg->hPa, inch->mm
-- **Options Flow**: beallitasok ujrainditas nelkul modosíthatoak
+Ez a custom integration lehetővé teszi, hogy bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait megjelenítsd a Home Assistantban — közvetlenül az **official WU API**-n keresztül, imperial → metrikus konverzióval.
 
 ---
 
-## Adatok forrasa
+## Funkciók
 
-Az integracioa a WU PWS "Current Observations" API vegpontot hasznáalja:
+- **Állítható állomás azonosító**: bármely WU PWS állomás azonosító megadható (pl. IKAPOS27)
+- **API kulcs**: a WU API kulcs a UI-ban kérhető be
+- **Állítható frissítési időköz**: 1–60 perc között, menet közben is módosítható
+- **Weather entity**: kompatibilis a HA időjárás kártyákkal
+- **12 sensor entitás**: hőmérséklet, érzett hőmérséklet, harmatpont, páratartalom, légnyomás, szélerősség, széllökés, szélirány (fokkal és égtájjal), csapadék, csapadék-intenzitás, napsugárzás, UV-index
+- **Imperiális → metrikus konverzió**: F→C, mph→km/h, inHg→hPa, inch→mm
+- **Options Flow**: beállítások újraindítás nélkül módosíthatóak
+
+---
+
+## Adatok forrása
+
+Az integráció a WU PWS "Current Observations" API végpontját használja:
 ```
 https://api.weather.com/v2/pws/observations/current
 ```
-Parameterek: `stationId`, `format=json`, `units=e` (imperial, majd konvertalva metrikusra), `apiKey`
+Parameterek: `stationId`, `format=json`, `units=e` (imperial, majd konvertálva metrikusra), `apiKey`
 
 ---
 
-## Telepites
+## Telepítés
 
-### HACS (ajanlo tt)
+### HACS (ajánlott)
 1. HACS -> Integrations -> `+` -> `Custom repositories`
-2. Add hozza: `https://github.com/aiasz/ha-wunderground-pws` (kategoria: Integration)
-3. Telepites utan inditsd ujra a HA-t
+2. Add hozzá: `https://github.com/aiasz/ha-wunderground-pws` (kategória: Integration)
+3. Telepítés után indítsd újra a HA-t
 
-### Manualis
-1. Masold a `custom_components/wunderground_pws` mappat a HA `config/custom_components/` konyvtaraba
-2. Inditsd ujra a Home Assistantot
+### Manuális
+1. Másold a `custom_components/wunderground_pws` mappát a HA `config/custom_components/` könyvtárába
+2. Indítsd újra a Home Assistantot
 
 ---
 
-## Beallitas
+## Beállítás
 
 1. **Settings -> Devices & Services -> Add Integration**
 2. Keresd: `Wunderground PWS`
-3. Add meg az **Allomas azonositot** (pl. `IKAPOS27`)
-4. Add meg az **API kulcsot** (WU fiokodban talalhato)
-5. Add meg a **frissitesi idokozt** percben (1-60)
+3. Add meg az **Állomás azonosítót** (pl. `IKAPOS27`)
+4. Add meg az **API kulcsot** (WU fiókodban található)
+5. Add meg a **frissítési időközt** percben (1–60)
 
-### Beallitasok modositasa
+### Beállítások módosítása
 **Settings -> Devices & Services -> Wunderground PWS -> Configure**
 
 ---
 
-## Idojaras kartya
+## Időjárás kártya
 
 ```yaml
 type: weather-forecast
@@ -63,21 +63,21 @@ entity: weather.wunderground_pws_ikapos27
 
 ---
 
-## Verziotortenet
+## Verziótörténet
 
 ### v1.2.0 (2026-02-27)
-- **API-alapu adatlekerdes** (tobbe nincs HTML scraping)
-- Imperial -> metrikus konverzio (F->C, mph->km/h, inHg->hPa, inch->mm)
-- Szelirany fokkal ES egtajjal (pl. SE)
-- API kulcs bekerult a UI beallitasba
-- BeautifulSoup fuggoseg eltavolitva
-- Keszito: Aiasz
+- **API-alapú adatlekérdezés** (többé nincs HTML scraping)
+- Imperiális → metrikus konverzió (F→C, mph→km/h, inHg→hPa, inch→mm)
+- Szélirány fokkal és égtájjal (pl. SE)
+- API kulcs bekerült a UI beállításába
+- BeautifulSoup függőség eltávolítva
+- Készítő: Aiasz
 
 ### v1.0.0
-- Elso kiadás - HTML dashboard scraping
+- Első kiadás - HTML dashboard scraping
 
 ---
 
 ## Licenc
 
-MIT License - Keszito: Aiasz
+MIT License - Készítő: Aiasz

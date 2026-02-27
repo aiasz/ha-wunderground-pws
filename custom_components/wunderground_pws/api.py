@@ -149,6 +149,7 @@ def enrich_observation(obs: Dict[str, Any]) -> Dict[str, Any]:
     out["temperature"] = temp_c
     out["dew_point"] = dewpt_c
     out["feels_like"] = round(f_to_c(heat_f), 1) if heat_f is not None else None
+    out["heat_index"] = round(f_to_c(heat_f), 1) if heat_f is not None else None
     out["wind_speed"] = wind_kmh
     out["wind_gust"] = round(mph_to_kmh(gust_mph), 1) if gust_mph is not None else None
     out["pressure"] = round(inhg_to_hpa(press_inhg), 2) if press_inhg is not None else None
