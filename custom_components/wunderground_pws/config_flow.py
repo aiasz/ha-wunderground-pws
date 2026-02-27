@@ -79,7 +79,7 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> WundergroundPWSOptionsFlow:
         """Return options flow handler."""
-        return WundergroundPWSOptionsFlow(config_entry)
+        return WundergroundPWSOptionsFlow()
 
     async def _validate_api(self, station_id: str, api_key: str) -> bool:
         """Validate station ID and API key against WU API."""
@@ -106,10 +106,6 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class WundergroundPWSOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Wunderground PWS."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
