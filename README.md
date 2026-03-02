@@ -1,6 +1,6 @@
 # Wunderground PWS - Home Assistant Custom Integration
 
-**Készítő: Aiasz | Verzió: 1.2.0**
+**Készítő: Aiasz | Verzió: 1.3.0**
 
 Ez a custom integration lehetővé teszi, hogy bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait megjelenítsd a Home Assistantban — közvetlenül az **official WU API**-n keresztül, imperial → metrikus konverzióval.  
 Az előrejelzés adatokat a **[Open-Meteo](https://open-meteo.com/)** ingyenes API-ja biztosítja egy opcionálisan megadott város alapján.
@@ -10,7 +10,8 @@ Az előrejelzés adatokat a **[Open-Meteo](https://open-meteo.com/)** ingyenes A
 ## Funkciók
 
 - **Állítható állomás azonosító**: bármely WU PWS állomás azonosító megadható (pl. IKAPOS27)
-- **API kulcs**: a WU API kulcs a UI-ban kérhető be
+- **API kulcs (opcionális)**: saját kulcs megadható, de **nem kötelező** — ha üresen hagyod, az integráció automatikusan beszerez egy működő kulcsot (demo/tesztelési mód)
+- **Automatikus kulcs-újrabeszerzés**: ha a kulcs lejár vagy érvénytelenné válik, az integráció futás közben önállóan beszerez egy újat és elmenti
 - **Állítható frissítési időköz**: 1–60 perc között, menet közben is módosítható
 - **Opcionális előrejelzési város**: a HA időjárás kártyán 7 napos előrejelzés jelenik meg (pl. Kaposvár)
 - **Weather entity**: kompatibilis a HA időjárás kártyákkal, 7 napos előrejelzéssel
@@ -20,11 +21,26 @@ Az előrejelzés adatokat a **[Open-Meteo](https://open-meteo.com/)** ingyenes A
 
 ---
 
+## Demo / tesztelési mód (API kulcs nélkül)
+
+Az integráció **API kulcs megadása nélkül is elindítható**. Ilyen esetben az első inicializáláskor az integráció automatikusan beszerez egy nyilvánosan elérhető kulcsot, és azt elmenti — így a következő újraindításkor már azt használja, nem kér le újat feleslegesen.
+
+| Helyzet | Mi történik? |
+|---|---|
+| API kulcs nincs megadva | Első induláskor automatikusan beszerzi és elmenti |
+| Saját kulcs van megadva | Azt használja, auto-keresés nem fut |
+| A kulcs lejár / érvénytelen lesz (401/403 hiba) | Automatikusan new kulcsot szerez és elmenti |
+| Auto-keresés sikertelen (max. 3 kísérlet) | Hibaüzenet, manuális megadás szükséges |
+
+> **Megjegyzés:** A demo módban szerzett kulcs egy nyilvánosan elérhető, megosztott kulcs. Tartós, megbízható használathoz ajánlott saját WU API kulcsot igényelni a [Weather Underground](https://www.wunderground.com/member/api-keys) oldalán.
+
+---
+
 ## Adatok forrása
 
 | Adat | Forrás | API |
 |---|---|---|
-| Jelenlegi időjárás (PWS mérés) | Weather Underground | ingyenes WU API kulccsal |
+| Jelenlegi időjárás (PWS mérés) | Weather Underground | WU API kulccsal (auto vagy saját) |
 | 7 napos előrejelzés | Open-Meteo | ingyenes, kulcs nélkül |
 | Geocoding (város → koordináta) | Open-Meteo Geocoding | ingyenes, kulcs nélkül |
 
@@ -62,13 +78,17 @@ https://geocoding-api.open-meteo.com/v1/search
 1. **Settings -> Devices & Services -> Add Integration**
 2. Keresd: `Wunderground PWS`
 3. Add meg az **Állomás azonosítót** (pl. `IKAPOS27`)
-4. Add meg az **API kulcsot** (WU fiókodban található)
+4. Az **API kulcs** mező **opcionális**:
+   - **Üresen hagyva** → az integráció automatikusan beszerzi és elmenti a kulcsot (demo mód), majd megerősítő képernyőn mutatja a talált kulcsot
+   - **Saját kulcs megadva** → azt használja közvetlenül
 5. Add meg a **frissítési időközt** percben (1–60)
 6. Add meg az **előrejelzési várost** *(opcionális)* — pl. `Kaposvár` vagy `Budapest`  
    _(Ha üresen hagyod, az állomás koordinátái alapján töltődik be az előrejelzés.)_
 
 ### Beállítások módosítása
 **Settings -> Devices & Services -> Wunderground PWS -> Configure**
+
+> Az API kulcs mező itt is üresen hagyható — az integráció újratöltéskor automatikusan beszerzi az új kulcsot.
 
 ---
 
@@ -107,6 +127,13 @@ forecast_type: daily
 ---
 
 ## Verziótörténet
+
+### v1.3.0 (2026-03-02)
+- **Demo / tesztelési mód**: API kulcs megadása nélkül is működik
+- **Automatikus kulcs-beszerzés**: ha nincs megadva kulcs, az integráció induláskor automatikusan beszerzi
+- **Automatikus kulcs-újrabeszerzés**: 401/403 API hiba esetén futás közben is megújítja a kulcsot és elmenti
+- **Kétlépéses telepítési folyamat**: API kulcs nélkül egy megerősítő képernyő jelenik meg a talált kulccsal
+- Készítő: Aiasz
 
 ### v1.2.0 (2026-02-27)
 - **API-alapú adatlekérdezés** (nincs HTML scraping)

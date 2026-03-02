@@ -4,13 +4,19 @@ Converts imperial observations to metric units, enriches with calculated
 values (cloud base, absolute humidity, wind chill, Hungarian compass),
 fetches geocoding from Open-Meteo and forecast from Open-Meteo API.
 
+Demo / tesztelési mód: ha nincs API kulcs megadva, az integráció megpróbál
+egy nyilvánosan elérhető kulcsot automatikusan beszerezni, így API kulcs
+nélkül is korlátozott mértékben működőképes marad. Saját API kulcs megadása
+javasolt a megbízható, hosszú távú működéshez.
+
 Keszito: Aiasz
-Verzio: 1.2.0
+Verzio: 1.3.0
 """
 from __future__ import annotations
 
 import asyncio
 import math
+import re
 from typing import Any, Dict
 
 import aiohttp
@@ -171,6 +177,68 @@ def enrich_observation(obs: Dict[str, Any]) -> Dict[str, Any]:
     out["wind_chill"] = calculate_wind_chill(temp_c, wind_kmh)
 
     return out
+
+
+_WU_DASHBOARD_URL = "https://www.wunderground.com/dashboard/pws/{station_id}"
+
+# Patterns to extract the 32-char hex API key embedded in the WU website.
+# The key appears in various forms – URL query params, JSON properties, JS vars.
+_APIKEY_PATTERNS: list[str] = [
+    # URL query param  e.g.  ?apiKey=e1f10a1e78da46f5b10a1e78da96f525
+    r'[?&]apiKey=([a-fA-F0-9]{32})',
+    # JSON property    e.g.  "apiKey":"e1f10a1e78da46f5b10a1e78da96f525"
+    r'"apiKey"\s*:\s*"([a-fA-F0-9]{32})"',
+    r"'apiKey'\s*:\s*'([a-fA-F0-9]{32})'",
+    # JS assignment    e.g.  apiKey: "e1f10...
+    r'apiKey\s*[:=]\s*["\']([a-fA-F0-9]{32})["\']',
+    # URL-encoded      e.g.  apiKey%22%3A%22e1f10...
+    r'apiKey%22%3A%22([a-fA-F0-9]{32})',
+    # Generic "key"    e.g.  "key":"e1f10...
+    r'"key"\s*:\s*"([a-fA-F0-9]{32})"',
+]
+
+_WU_SCRAPE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+}
+
+
+async def discover_api_key(
+    station_id: str, session: aiohttp.ClientSession
+) -> str | None:
+    """Demo/teszt módhoz: nyilvánosan elérhető WU API kulcs automatikus beszerzése.
+
+    Ha a felhasználó nem adott meg saját API kulcsot, ez a függvény megpróbál
+    egy működő kulcsot beszerezni a WU nyilvános dashboard oldaláról, így az
+    integráció korlátozott (demo) módban is elindulhat.
+
+    Saját API kulcs hiányában, vagy ha az aktuális kulcs érvénytelen / lejárt,
+    a koordinátor automatikusan meghívja ezt a funkciót és elmenti az eredményt.
+
+    Visszatürít egy 32 karakteres hex kulcsot, vagy ``None``-t ha nem sikerült.
+    """
+    url = _WU_DASHBOARD_URL.format(station_id=station_id)
+    try:
+        async with asyncio.timeout(25):
+            async with session.get(
+                url, headers=_WU_SCRAPE_HEADERS, allow_redirects=True
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                html = await resp.text(errors="replace")
+    except (asyncio.TimeoutError, aiohttp.ClientError, ValueError):
+        return None
+
+    for pattern in _APIKEY_PATTERNS:
+        match = re.search(pattern, html)
+        if match:
+            return match.group(1)
+    return None
 
 
 async def fetch_geocoding(
