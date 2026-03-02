@@ -3,17 +3,25 @@
     "step": {
       "user": {
         "title": "Wunderground PWS beállítása",
-        "description": "Add meg a Weather Underground állomás azonosítódat (pl. IKAPOS27) és az API kulcsodat. Az előrejelzési város megadásával a HA időjárás kártyán 7 napos előrejelzés jelenik meg.",
+        "description": "Add meg a Weather Underground állomás azonosítódat (pl. IKAPOS27) és opcionálisan az API kulcsodat. Ha az API kulcsot üresen hagyod, az integráció megpróbálja automatikusan begyűjteni azt. Az előrejelzési város megadásával a HA időjárás kártyán 7 napos előrejelzés jelenik meg.",
         "data": {
           "station_id": "Állomás azonosító (pl. IKAPOS27)",
-          "api_key": "API kulcs",
+          "api_key": "API kulcs (üres = automatikus keresés)",
           "scan_interval": "Frissítési időköz (perc)",
           "city": "Előrejelzési város (pl. Kaposvár) — opcionális"
+        }
+      },
+      "discover": {
+        "title": "API kulcs megerősítése",
+        "description": "Az automatikus API kulcs keresés eredménye: **{discovery_status}** (állomás: {station_id}).\n\nEllenőrizd vagy javítsd ki a talált kulcsot, illetve add meg kézzel, ha az automatikus keresés nem sikerült.",
+        "data": {
+          "api_key": "API kulcs"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nem sikerült csatlakozni a WU API-hoz. Ellenőrizd az állomás azonosítót és az API kulcsot."
+      "cannot_connect": "Nem sikerült csatlakozni a WU API-hoz. Ellenőrizd az állomás azonosítót és az API kulcsot.",
+      "api_key_required": "Az API kulcs nem lehet üres."
     },
     "abort": {
       "already_configured": "Ez az állomás már be van állítva."
@@ -23,9 +31,10 @@
     "step": {
       "init": {
         "title": "Wunderground PWS beállítások módosítása",
+        "description": "Az API kulcs mezőt üresen hagyva az integráció újratöltéskor automatikusan megkísérli a kulcs begyűjtését.",
         "data": {
           "station_id": "Állomás azonosító (pl. IKAPOS27)",
-          "api_key": "API kulcs",
+          "api_key": "API kulcs (üres = automatikus keresés újratöltéskor)",
           "scan_interval": "Frissítési időköz (perc)",
           "city": "Előrejelzési város (pl. Kaposvár) — opcionális"
         }

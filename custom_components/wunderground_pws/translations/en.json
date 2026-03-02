@@ -3,17 +3,25 @@
     "step": {
       "user": {
         "title": "Set up Wunderground PWS",
-        "description": "Enter your Weather Underground station ID (e.g. IKAPOS27) and your API key. Optionally enter a forecast city to show a 7-day forecast on the HA weather card.",
+        "description": "Enter your Weather Underground station ID (e.g. IKAPOS27) and optionally your API key. If the API key field is left blank, the integration will attempt to discover it automatically. Optionally enter a forecast city to show a 7-day forecast on the HA weather card.",
         "data": {
           "station_id": "Station ID (e.g. IKAPOS27)",
-          "api_key": "API Key",
+          "api_key": "API Key (blank = auto-discover)",
           "scan_interval": "Update interval (minutes)",
           "city": "Forecast city (e.g. Kaposvár) — optional"
+        }
+      },
+      "discover": {
+        "title": "Confirm API Key",
+        "description": "Auto-discovery result: **{discovery_status}** (station: {station_id}).\n\nVerify or correct the key shown below, or enter one manually if auto-discovery failed.",
+        "data": {
+          "api_key": "API Key"
         }
       }
     },
     "error": {
-      "cannot_connect": "Could not connect to the WU API. Please check your station ID and API key."
+      "cannot_connect": "Could not connect to the WU API. Please check your station ID and API key.",
+      "api_key_required": "The API key cannot be empty."
     },
     "abort": {
       "already_configured": "This station is already configured."
@@ -23,9 +31,10 @@
     "step": {
       "init": {
         "title": "Wunderground PWS options",
+        "description": "Clearing the API key field will trigger automatic re-discovery on the next integration reload.",
         "data": {
           "station_id": "Station ID (e.g. IKAPOS27)",
-          "api_key": "API Key",
+          "api_key": "API Key (blank = auto-discover on reload)",
           "scan_interval": "Update interval (minutes)",
           "city": "Forecast city (e.g. Kaposvár) — optional"
         }

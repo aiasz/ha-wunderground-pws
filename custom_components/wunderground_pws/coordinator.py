@@ -1,8 +1,14 @@
 """Data coordinator for Wunderground PWS integration (API-based).
 
+Demo / tesztelési mód: ha nincs API kulcs megadva, az integráció automatikusan
+megkísérli beszerezni egy nyilvánosan elérhető kulcsot, és korlátozott módban
+is működőképes marad. Saját API kulcs megadása javasolt a megbízható működéshez.
+
+Ha az API hívás 401 / 403 hibával tér vissza (érvénytelen / lejárt kulcs),
+a koordinátor automatikusan új kulcs beszerzését kísérli meg és elmenti azt.
+
 Keszito: Aiasz
-Verzio: 1.2.0
-"""
+Verzio: 1.3.0"""
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +23,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import enrich_observation, fetch_open_meteo_forecast, fetch_geocoding
+from .api import enrich_observation, fetch_open_meteo_forecast, fetch_geocoding, discover_api_key
 from .const import (
     DOMAIN,
     WU_API_URL,
@@ -64,6 +70,7 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         # Use .get() on entry.data to avoid KeyError for older entries
+        self._entry = entry
         self.station_id: str = entry.options.get(
             CONF_STATION_ID, entry.data.get(CONF_STATION_ID, DEFAULT_STATION_ID)
         )
@@ -79,6 +86,9 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
         )
         self.forecast_data: list[dict[str, Any]] = []
         self.forecast_city: str = self.city  # resolved display name
+        # Track consecutive auth failures to avoid infinite rediscovery loops
+        self._auth_failure_count: int = 0
+        self._MAX_REDISCOVERY_ATTEMPTS: int = 3
         super().__init__(
             hass,
             _LOGGER,
@@ -86,9 +96,82 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=scan_interval),
         )
 
+    # ------------------------------------------------------------------
+    # API key auto-discovery helpers
+    # ------------------------------------------------------------------
+
+    async def _try_rediscover_api_key(self, session: aiohttp.ClientSession) -> bool:
+        """Attempt to auto-discover a new WU API key and persist it.
+
+        Returns True and updates ``self.api_key`` + the config entry when a
+        key is found; returns False otherwise.
+        """
+        if self._auth_failure_count >= self._MAX_REDISCOVERY_ATTEMPTS:
+            _LOGGER.error(
+                "Giving up WU API key auto-discovery after %d attempts for station %s.",
+                self._auth_failure_count,
+                self.station_id,
+            )
+            return False
+
+        self._auth_failure_count += 1
+        _LOGGER.info(
+            "WU API key missing/invalid for station %s – attempting auto-discovery "
+            "(attempt %d/%d) …",
+            self.station_id,
+            self._auth_failure_count,
+            self._MAX_REDISCOVERY_ATTEMPTS,
+        )
+
+        try:
+            new_key = await discover_api_key(self.station_id, session)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("WU API key discovery raised an error: %s", exc)
+            new_key = None
+
+        if not new_key:
+            _LOGGER.warning(
+                "WU API key auto-discovery found no key for station %s.",
+                self.station_id,
+            )
+            return False
+
+        _LOGGER.info(
+            "WU API key auto-discovered for station %s (key ends …%s); "
+            "persisting to config entry.",
+            self.station_id,
+            new_key[-4:],
+        )
+        self.api_key = new_key
+        self._auth_failure_count = 0  # reset counter after success
+
+        # Persist the discovered key so it survives a restart
+        new_data = dict(self._entry.data)
+        new_data[CONF_API_KEY] = new_key
+        self.hass.config_entries.async_update_entry(self._entry, data=new_data)
+        return True
+
+    # ------------------------------------------------------------------
+    # Main update loop
+    # ------------------------------------------------------------------
+
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch and normalize observation data from WU API + forecast from Open-Meteo."""
         session = async_get_clientsession(self.hass)
+
+        # If api_key is missing (e.g. first run or cleared options), attempt discovery
+        if not self.api_key:
+            _LOGGER.info(
+                "No WU API key set for station %s – running auto-discovery before first fetch.",
+                self.station_id,
+            )
+            if not await self._try_rediscover_api_key(session):
+                raise UpdateFailed(
+                    f"No API key available for station {self.station_id} and "
+                    "auto-discovery failed. Please enter the key manually in the "
+                    "integration options."
+                )
+
         params = {
             "stationId": self.station_id,
             "format": "json",
@@ -98,9 +181,32 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
         try:
             async with asyncio.timeout(30):
                 async with session.get(WU_API_URL, params=params) as resp:
-                    if resp.status != 200:
+                    if resp.status in (401, 403):
+                        _LOGGER.warning(
+                            "WU API returned HTTP %s (auth error) for station %s – "
+                            "attempting key re-discovery …",
+                            resp.status,
+                            self.station_id,
+                        )
+                        if await self._try_rediscover_api_key(session):
+                            # Retry with the new key
+                            params["apiKey"] = self.api_key
+                            async with asyncio.timeout(30):
+                                async with session.get(WU_API_URL, params=params) as resp2:
+                                    if resp2.status != 200:
+                                        raise UpdateFailed(
+                                            f"API error after key re-discovery: HTTP {resp2.status}"
+                                        )
+                                    payload = await resp2.json()
+                        else:
+                            raise UpdateFailed(
+                                f"WU API auth error (HTTP {resp.status}) and key "
+                                "re-discovery failed. Please enter the key manually."
+                            )
+                    elif resp.status != 200:
                         raise UpdateFailed(f"API error: HTTP {resp.status}")
-                    payload = await resp.json()
+                    else:
+                        payload = await resp.json()
         except asyncio.TimeoutError as exc:
             raise UpdateFailed("Timeout fetching Wunderground API") from exc
         except (aiohttp.ClientError, ValueError) as exc:
