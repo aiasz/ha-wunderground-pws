@@ -1,7 +1,7 @@
 """Constants for Wunderground PWS integration.
 
 Keszito: Aiasz
-Verzio: 1.2.0
+Verzio: 1.3.0
 """
 
 DOMAIN = "wunderground_pws"

@@ -1,7 +1,7 @@
 """Weather platform for Wunderground PWS integration.
 
 Keszito: Aiasz
-Verzio: 1.2.0
+Verzio: 1.3.0
 """
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
             "identifiers": {(DOMAIN, coordinator.station_id)},
             "name": f"Wunderground PWS {coordinator.station_id}",
             "manufacturer": "Aiasz",
-            "model": "Wunderground PWS v1.2.0",
+            "model": "Wunderground PWS v1.3.0",
         }
 
     @property

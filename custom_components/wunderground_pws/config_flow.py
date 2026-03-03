@@ -7,7 +7,7 @@ First-time setup supports automatic API key discovery:
   - The key can always be entered or overridden manually.
 
 Keszito: Aiasz
-Verzio: 1.2.0
+Verzio: 1.3.0
 """
 from __future__ import annotations
 
