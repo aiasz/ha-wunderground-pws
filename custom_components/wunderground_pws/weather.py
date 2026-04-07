@@ -178,6 +178,7 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
                     native_precipitation=day.get("precipitation"),
                     condition=day.get("condition"),
                     cloud_coverage=day.get("cloud_coverage"),
+                    wind_speed=day.get("wind_speed"),
                 )
             )
         return result
