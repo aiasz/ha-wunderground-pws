@@ -283,7 +283,7 @@ async def fetch_open_meteo_forecast(
     params = {
         "latitude": lat,
         "longitude": lon,
-        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,cloudcover_mean",
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,cloudcover_mean,wind_speed_10m_max",
         "timezone": "auto",
         "forecast_days": 7,
     }
@@ -303,6 +303,7 @@ async def fetch_open_meteo_forecast(
     precip = daily.get("precipitation_sum", [])
     weather_code = daily.get("weathercode", [])
     cloud_cover = daily.get("cloudcover_mean", [])
+    wind_speed = daily.get("wind_speed_10m_max", [])
 
     forecast = []
     for i, date in enumerate(dates):
@@ -316,6 +317,7 @@ async def fetch_open_meteo_forecast(
                     weather_code[i] if i < len(weather_code) else None
                 ),
                 "cloud_coverage": cloud_cover[i] if i < len(cloud_cover) else None,
+                "wind_speed": round(wind_speed[i], 1) if i < len(wind_speed) and wind_speed[i] is not None else None,
             }
         )
     return forecast
@@ -409,8 +411,10 @@ async def fetch_wunderground_forecast(
     temp_max = data.get("calendarDayTemperatureMax") or []
     temp_min = data.get("calendarDayTemperatureMin") or []
     precip_qpf = data.get("qpf") or []
-    icon_codes = data.get("daypart", [{}])[0].get("iconCode") or data.get("iconCode") or []
-    # The top-level iconCode list (day icon, prefer that)
+    daypart = (data.get("daypart") or [{}])[0]
+    icon_codes = daypart.get("iconCode") or data.get("iconCode") or []
+    # daypart wind: 2 entries per calendar day (day=even index, night=odd index)
+    daypart_wind = daypart.get("windSpeed") or []
     if not icon_codes:
         icon_codes = []
 
@@ -422,6 +426,13 @@ async def fetch_wunderground_forecast(
         except (TypeError, IndexError):
             date_str = ts
 
+        # day-part wind speed: index 2*i is daytime, 2*i+1 is nighttime
+        day_idx = i * 2
+        ws_day = _safe_float(daypart_wind[day_idx] if day_idx < len(daypart_wind) else None)
+        ws_night = _safe_float(daypart_wind[day_idx + 1] if day_idx + 1 < len(daypart_wind) else None)
+        ws_values = [v for v in (ws_day, ws_night) if v is not None]
+        wind_speed = round(max(ws_values), 1) if ws_values else None
+
         forecast.append(
             {
                 "datetime": date_str,
@@ -432,6 +443,7 @@ async def fetch_wunderground_forecast(
                     icon_codes[i] if i < len(icon_codes) else None
                 ),
                 "cloud_coverage": None,
+                "wind_speed": wind_speed,
             }
         )
 
@@ -540,6 +552,9 @@ async def fetch_metno_forecast(
         date_key = dt.strftime("%Y-%m-%d")
         instant = (entry.get("data") or {}).get("instant", {}).get("details") or {}
         temp = _safe_float(instant.get("air_temperature"))
+        # wind_speed from MET.no is in m/s → convert to km/h
+        wind_ms = _safe_float(instant.get("wind_speed"))
+        wind_kmh = round(wind_ms * 3.6, 1) if wind_ms is not None else None
 
         # Prefer next_12_hours symbol for daytime, fall back to next_6_hours / next_1_hour
         next12 = (entry.get("data") or {}).get("next_12_hours") or {}
@@ -559,11 +574,14 @@ async def fetch_metno_forecast(
         if date_key not in daily:
             daily[date_key] = {
                 "temps": [],
+                "wind_speeds": [],
                 "precip": 0.0,
                 "symbols": {},
             }
         if temp is not None:
             daily[date_key]["temps"].append(temp)
+        if wind_kmh is not None:
+            daily[date_key]["wind_speeds"].append(wind_kmh)
         if precip is not None:
             daily[date_key]["precip"] += precip
         if symbol:
@@ -583,6 +601,9 @@ async def fetch_metno_forecast(
         temps = bucket["temps"]
         temp_max = round(max(temps), 1) if temps else None
         temp_min = round(min(temps), 1) if temps else None
+        # Max wind speed of the day
+        winds = bucket["wind_speeds"]
+        wind_max = round(max(winds), 1) if winds else None
         # Most frequent symbol
         symbols = bucket["symbols"]
         dominant = max(symbols, key=symbols.get) if symbols else None
@@ -594,6 +615,7 @@ async def fetch_metno_forecast(
                 "precipitation": round(bucket["precip"], 1),
                 "condition": _map_metno_symbol(dominant),
                 "cloud_coverage": None,
+                "wind_speed": wind_max,
             }
         )
 
