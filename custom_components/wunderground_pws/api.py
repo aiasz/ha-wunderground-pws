@@ -16,7 +16,7 @@ nelkul is korlatozott mertekben mukodokepesmarad. Sajat API kulcs megadasa
 javasolt a megbizahto, hosszu tavu mukodeshez.
 
 Keszito: Aiasz
-Verzio: 1.4.0
+Verzio: 1.4.1
 """
 from __future__ import annotations
 
@@ -456,7 +456,7 @@ async def fetch_wunderground_forecast(
 
 # MET.no requires a descriptive User-Agent per their ToS
 _METNO_HEADERS = {
-    "User-Agent": "ha-wunderground-pws/1.4.0 github.com/aiasz/ha-wunderground-pws",
+    "User-Agent": "ha-wunderground-pws/1.4.1 github.com/aiasz/ha-wunderground-pws",
 }
 
 # Map MET.no symbol_code prefix to HA condition
