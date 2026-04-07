@@ -1,6 +1,6 @@
 # Wunderground PWS - Home Assistant Custom Integration
 
-**Készítő: Aiasz | Verzió: 1.4.0**
+**Készítő: Aiasz | Verzió: 1.4.1**
 
 Ez a custom integration lehetővé teszi, hogy bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait megjelenítsd a Home Assistantban — közvetlenül az **official WU API**-n keresztül, imperial → metrikus konverzióval.  
 Az előrejelzés adatokat **több forrásból** szerezheti be, automatikus fallback logikával.
@@ -169,6 +169,14 @@ forecast_type: daily
 ---
 
 ## Verziótörténet
+
+### v1.4.1 (2026-04-07)
+- **Javítás: NaN km/h szélsebesség az előrejelzés kártyán**
+- Open-Meteo: `wind_speed_10m_max` hozzáadva a napi lekéréshez
+- MET.no: óránkénti `wind_speed` (m/s → km/h) kinyerése és napi maximum aggregálása
+- WU forecast: `daypart.windSpeed` kinyerése, napi maximum
+- `weather.py`: `wind_speed` mező átadása a `Forecast` objektumba
+- Készítő: Aiasz
 
 ### v1.4.0 (2026-04-07)
 - **Többforrású előrejelzés** bevezetése automatikus fallback logikával
