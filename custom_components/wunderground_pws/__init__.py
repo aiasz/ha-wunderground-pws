@@ -1,7 +1,7 @@
 """Wunderground PWS integration for Home Assistant.
 
 Keszito: Aiasz
-Verzio: 1.3.0
+Verzio: 1.4.0
 """
 from __future__ import annotations
 

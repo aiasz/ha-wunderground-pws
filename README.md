@@ -1,9 +1,9 @@
 # Wunderground PWS - Home Assistant Custom Integration
 
-**Készítő: Aiasz | Verzió: 1.3.0**
+**Készítő: Aiasz | Verzió: 1.4.0**
 
 Ez a custom integration lehetővé teszi, hogy bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait megjelenítsd a Home Assistantban — közvetlenül az **official WU API**-n keresztül, imperial → metrikus konverzióval.  
-Az előrejelzés adatokat a **[Open-Meteo](https://open-meteo.com/)** ingyenes API-ja biztosítja egy opcionálisan megadott város alapján.
+Az előrejelzés adatokat **több forrásból** szerezheti be, automatikus fallback logikával.
 
 ---
 
@@ -14,10 +14,39 @@ Az előrejelzés adatokat a **[Open-Meteo](https://open-meteo.com/)** ingyenes A
 - **Automatikus kulcs-újrabeszerzés**: ha a kulcs lejár vagy érvénytelenné válik, az integráció futás közben önállóan beszerez egy újat és elmenti
 - **Állítható frissítési időköz**: 1–60 perc között, menet közben is módosítható
 - **Opcionális előrejelzési város**: a HA időjárás kártyán 7 napos előrejelzés jelenik meg (pl. Kaposvár)
+- **Többforrású előrejelzés automatikus fallback-kel** (lásd alább)
 - **Weather entity**: kompatibilis a HA időjárás kártyákkal, 7 napos előrejelzéssel
 - **16 sensor entitás**: hőmérséklet, érzett hőmérséklet, harmatpont, hőérzet index, szélhűtési index, páratartalom, légnyomás, szélerősség, széllökés, szélirány (fokkal), szélirány (magyar égtáj), csapadék, csapadék-intenzitás, napsugárzás, abszolút páratartalom, felhőalap, UV-index
 - **Imperiális → metrikus konverzió**: F→C, mph→km/h, inHg→hPa, inch→mm
 - **Options Flow**: beállítások újraindítás nélkül módosíthatóak
+
+---
+
+## Előrejelzés-források
+
+Az integráció **három különböző forrásból** képes 7 napos előrejelzést lekérni:
+
+| Forrás | API | API kulcs szükséges? |
+|---|---|---|
+| `wunderground` | Weather.com v3 Forecast API | Igen (WU API kulcs) |
+| `metno` | MET.no Locationforecast 2.0 | Nem (ingyenes) |
+| `openmeteo` | Open-Meteo Forecast API | Nem (ingyenes) |
+
+### Prioritás és fallback logika
+
+A `forecast_source` beállítás értéke:
+
+| Érték | Viselkedés |
+|---|---|
+| `auto` *(alapértelmezett)* | WU forecast → MET.no → Open-Meteo (az első sikeres forrást használja) |
+| `wunderground` | Csak WU forecast (ha sikertelen, nincs fallback) |
+| `metno` | Csak MET.no (ha sikertelen, nincs fallback) |
+| `openmeteo` | Csak Open-Meteo (ha sikertelen, nincs fallback) |
+
+Az `auto` módban ha pl. a WU forecast API nem ad vissza adatot (nincs kulcs, vagy timeout), az integráció automatikusan megpróbál a következő forrástól adatot lekérni — anélkül hogy bármit kellene kézzel beállítani.
+
+A HA naplóban látható, hogy melyik forrás volt sikeres, és melyiket kellett kihagyni.  
+Az aktuálisan használt forrás megjelenik az időjárás entitás `forecast_source_used` extra attribútumában is.
 
 ---
 
@@ -41,12 +70,20 @@ Az integráció **API kulcs megadása nélkül is elindítható**. Ilyen esetben
 | Adat | Forrás | API |
 |---|---|---|
 | Jelenlegi időjárás (PWS mérés) | Weather Underground | WU API kulccsal (auto vagy saját) |
-| 7 napos előrejelzés | Open-Meteo | ingyenes, kulcs nélkül |
+| 7 napos előrejelzés | WU / MET.no / Open-Meteo | részletek fent |
 | Geocoding (város → koordináta) | Open-Meteo Geocoding | ingyenes, kulcs nélkül |
 
 WU megfigyelés végpontja:
 ```
 https://api.weather.com/v2/pws/observations/current
+```
+WU előrejelzés végpontja:
+```
+https://api.weather.com/v3/wx/forecast/daily/7day
+```
+MET.no előrejelzés:
+```
+https://api.met.no/weatherapi/locationforecast/2.0/compact
 ```
 Open-Meteo előrejelzés:
 ```
@@ -84,6 +121,11 @@ https://geocoding-api.open-meteo.com/v1/search
 5. Add meg a **frissítési időközt** percben (1–60)
 6. Add meg az **előrejelzési várost** *(opcionális)* — pl. `Kaposvár` vagy `Budapest`  
    _(Ha üresen hagyod, az állomás koordinátái alapján töltődik be az előrejelzés.)_
+7. Állítsd be az **Előrejelzés forrását** *(opcionális, alapértelmezett: `auto`)*:
+   - `auto` — automatikus fallback: WU → MET.no → Open-Meteo
+   - `wunderground` — csak Weather.com/WU forecast API
+   - `metno` — csak MET.no
+   - `openmeteo` — csak Open-Meteo
 
 ### Beállítások módosítása
 **Settings -> Devices & Services -> Wunderground PWS -> Configure**
@@ -127,6 +169,16 @@ forecast_type: daily
 ---
 
 ## Verziótörténet
+
+### v1.4.0 (2026-04-07)
+- **Többforrású előrejelzés** bevezetése automatikus fallback logikával
+- Új `forecast_source` beállítás: `auto` / `wunderground` / `metno` / `openmeteo`
+- **WU (Weather.com) v3 forecast API** támogatás hozzáadva
+- **MET.no Locationforecast 2.0** támogatás hozzáadva (ingyenes, kulcs nélkül)
+- `auto` módban prioritás: WU forecast → MET.no → Open-Meteo
+- `forecast_source_used` extra attribútum az időjárás entitáson (melyik forrásból jött az adat)
+- README frissítés a multi-source dokumentációval
+- Készítő: Aiasz
 
 ### v1.3.0 (2026-03-02)
 - **Demo / tesztelési mód**: API kulcs megadása nélkül is működik
