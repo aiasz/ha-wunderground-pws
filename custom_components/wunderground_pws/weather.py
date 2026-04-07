@@ -1,7 +1,7 @@
 """Weather platform for Wunderground PWS integration.
 
 Keszito: Aiasz
-Verzio: 1.3.0
+Verzio: 1.4.0
 """
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
             "identifiers": {(DOMAIN, coordinator.station_id)},
             "name": f"Wunderground PWS {coordinator.station_id}",
             "manufacturer": "Aiasz",
-            "model": "Wunderground PWS v1.3.0",
+            "model": "Wunderground PWS v1.4.0",
         }
 
     @property
@@ -160,6 +160,8 @@ class WundergroundPWSWeather(CoordinatorEntity, WeatherEntity):
             "absolute_humidity": self.coordinator.data.get(ATTR_ABSOLUTE_HUMIDITY),
             "wind_chill": self.coordinator.data.get(ATTR_WIND_CHILL),
             "forecast_city": self.coordinator.city or None,
+            "forecast_source": self.coordinator.forecast_source or None,
+            "forecast_source_used": self.coordinator.forecast_source_used or None,
         }
 
     async def async_forecast_daily(self) -> list[Forecast] | None:

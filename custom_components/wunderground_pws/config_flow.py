@@ -7,7 +7,7 @@ First-time setup supports automatic API key discovery:
   - The key can always be entered or overridden manually.
 
 Keszito: Aiasz
-Verzio: 1.3.0
+Verzio: 1.4.0
 """
 from __future__ import annotations
 
@@ -30,9 +30,12 @@ from .const import (
     CONF_API_KEY,
     CONF_SCAN_INTERVAL,
     CONF_CITY,
+    CONF_FORECAST_SOURCE,
     DEFAULT_STATION_ID,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_CITY,
+    DEFAULT_FORECAST_SOURCE,
+    FORECAST_SOURCES,
     MIN_SCAN_INTERVAL,
     MAX_SCAN_INTERVAL,
 )
@@ -52,6 +55,7 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._api_key: str = ""
         self._scan_interval: int = DEFAULT_SCAN_INTERVAL
         self._city: str = DEFAULT_CITY
+        self._forecast_source: str = DEFAULT_FORECAST_SOURCE
         self._discovered_key: str | None = None  # result of last auto-discovery
 
     # ------------------------------------------------------------------
@@ -73,6 +77,7 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._api_key = user_input.get(CONF_API_KEY, "").strip()
             self._scan_interval = user_input[CONF_SCAN_INTERVAL]
             self._city = user_input.get(CONF_CITY, "").strip()
+            self._forecast_source = user_input.get(CONF_FORECAST_SOURCE, DEFAULT_FORECAST_SOURCE)
 
             await self.async_set_unique_id(self._station_id)
             self._abort_if_unique_id_configured()
@@ -101,6 +106,9 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
                 ),
                 vol.Optional(CONF_CITY, default=DEFAULT_CITY): str,
+                vol.Optional(
+                    CONF_FORECAST_SOURCE, default=DEFAULT_FORECAST_SOURCE
+                ): vol.In(FORECAST_SOURCES),
             }
         )
 
@@ -197,6 +205,7 @@ class WundergroundPWSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_API_KEY: self._api_key,
                 CONF_SCAN_INTERVAL: self._scan_interval,
                 CONF_CITY: self._city,
+                CONF_FORECAST_SOURCE: self._forecast_source,
             },
         )
 
@@ -264,6 +273,10 @@ class WundergroundPWSOptionsFlow(config_entries.OptionsFlow):
         current_city = self.config_entry.options.get(
             CONF_CITY, self.config_entry.data.get(CONF_CITY, DEFAULT_CITY)
         )
+        current_forecast_source = self.config_entry.options.get(
+            CONF_FORECAST_SOURCE,
+            self.config_entry.data.get(CONF_FORECAST_SOURCE, DEFAULT_FORECAST_SOURCE),
+        )
 
         options_schema = vol.Schema(
             {
@@ -275,6 +288,9 @@ class WundergroundPWSOptionsFlow(config_entries.OptionsFlow):
                     vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
                 ),
                 vol.Optional(CONF_CITY, default=current_city): str,
+                vol.Optional(
+                    CONF_FORECAST_SOURCE, default=current_forecast_source
+                ): vol.In(FORECAST_SOURCES),
             }
         )
 

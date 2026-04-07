@@ -8,7 +8,8 @@
           "station_id": "Állomás azonosító (pl. IKAPOS27)",
           "api_key": "API kulcs (üres = automatikus keresés)",
           "scan_interval": "Frissítési időköz (perc)",
-          "city": "Előrejelzési város (pl. Kaposvár) — opcionális"
+          "city": "Előrejelzési város (pl. Kaposvár) — opcionális",
+          "forecast_source": "Előrejelzés forrása (auto / wunderground / metno / openmeteo)"
         }
       },
       "discover": {
@@ -31,12 +32,13 @@
     "step": {
       "init": {
         "title": "Wunderground PWS beállítások módosítása",
-        "description": "Az API kulcs mezőt üresen hagyva az integráció újratöltéskor automatikusan megkísérli a kulcs begyűjtését.",
+        "description": "Az API kulcs mezőt üresen hagyva az integráció újratöltéskor automatikusan megkísérli a kulcs begyűjtését.\n\nElőrejelzés-forrás: **auto** = WU → MET.no → Open-Meteo (fallback lánc).",
         "data": {
           "station_id": "Állomás azonosító (pl. IKAPOS27)",
           "api_key": "API kulcs (üres = automatikus keresés újratöltéskor)",
           "scan_interval": "Frissítési időköz (perc)",
-          "city": "Előrejelzési város (pl. Kaposvár) — opcionális"
+          "city": "Előrejelzési város (pl. Kaposvár) — opcionális",
+          "forecast_source": "Előrejelzés forrása (auto / wunderground / metno / openmeteo)"
         }
       }
     }

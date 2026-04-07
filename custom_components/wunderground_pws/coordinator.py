@@ -7,8 +7,14 @@ is működőképes marad. Saját API kulcs megadása javasolt a megbízható mű
 Ha az API hívás 401 / 403 hibával tér vissza (érvénytelen / lejárt kulcs),
 a koordinátor automatikusan új kulcs beszerzését kísérli meg és elmenti azt.
 
+Előrejelzés-források (forecast_source beállítás):
+  auto          → WU forecast → MET.no → Open-Meteo (fallback lánc)
+  wunderground  → csak WU forecast (ha nem sikerül: üres)
+  metno         → csak MET.no (ha nem sikerül: üres)
+  openmeteo     → csak Open-Meteo (ha nem sikerül: üres)
+
 Keszito: Aiasz
-Verzio: 1.3.0"""
+Verzio: 1.4.0"""
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +29,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import enrich_observation, fetch_open_meteo_forecast, fetch_geocoding, discover_api_key
+from .api import (
+    enrich_observation,
+    fetch_open_meteo_forecast,
+    fetch_geocoding,
+    discover_api_key,
+    fetch_wunderground_forecast,
+    fetch_metno_forecast,
+)
 from .const import (
     DOMAIN,
     WU_API_URL,
@@ -31,9 +44,15 @@ from .const import (
     CONF_API_KEY,
     CONF_SCAN_INTERVAL,
     CONF_CITY,
+    CONF_FORECAST_SOURCE,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STATION_ID,
     DEFAULT_CITY,
+    DEFAULT_FORECAST_SOURCE,
+    FORECAST_SOURCE_AUTO,
+    FORECAST_SOURCE_WUNDERGROUND,
+    FORECAST_SOURCE_METNO,
+    FORECAST_SOURCE_OPENMETEO,
     ATTR_TEMPERATURE,
     ATTR_FEELS_LIKE,
     ATTR_DEW_POINT,
@@ -66,7 +85,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class WundergroundPWSCoordinator(DataUpdateCoordinator):
-    """Coordinator to fetch data from Wunderground PWS API + Open-Meteo forecast."""
+    """Coordinator to fetch data from Wunderground PWS API + multi-source forecast."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         # Use .get() on entry.data to avoid KeyError for older entries
@@ -80,12 +99,17 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
         self.city: str = entry.options.get(
             CONF_CITY, entry.data.get(CONF_CITY, DEFAULT_CITY)
         )
+        self.forecast_source: str = entry.options.get(
+            CONF_FORECAST_SOURCE,
+            entry.data.get(CONF_FORECAST_SOURCE, DEFAULT_FORECAST_SOURCE),
+        )
         scan_interval: int = entry.options.get(
             CONF_SCAN_INTERVAL,
             entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         )
         self.forecast_data: list[dict[str, Any]] = []
         self.forecast_city: str = self.city  # resolved display name
+        self.forecast_source_used: str = ""  # which source actually delivered data
         # Track consecutive auth failures to avoid infinite rediscovery loops
         self._auth_failure_count: int = 0
         self._MAX_REDISCOVERY_ATTEMPTS: int = 3
@@ -271,15 +295,90 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator):
             forecast_lon = data.get(ATTR_LON)
 
         if forecast_lat is not None and forecast_lon is not None:
-            try:
-                self.forecast_data = await fetch_open_meteo_forecast(forecast_lat, forecast_lon, session)
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.warning("Failed to fetch Open-Meteo forecast: %s", exc)
-                self.forecast_data = []
+            self.forecast_data, self.forecast_source_used = (
+                await self._fetch_forecast_with_fallback(
+                    forecast_lat, forecast_lon, session
+                )
+            )
         else:
             self.forecast_data = []
+            self.forecast_source_used = ""
 
         return data
+
+    async def _fetch_forecast_with_fallback(
+        self,
+        lat: float,
+        lon: float,
+        session: aiohttp.ClientSession,
+    ) -> tuple[list[dict[str, Any]], str]:
+        """Fetch forecast using the configured source, with automatic fallback.
+
+        Returns (forecast_list, source_name_used).
+
+        Fallback sorrendfelhasználó beállításától függően:
+          auto         → wunderground → metno → openmeteo
+          wunderground → csak WU
+          metno        → csak MET.no
+          openmeteo    → csak Open-Meteo
+        """
+        source = self.forecast_source or FORECAST_SOURCE_AUTO
+
+        if source == FORECAST_SOURCE_AUTO:
+            order = [
+                FORECAST_SOURCE_WUNDERGROUND,
+                FORECAST_SOURCE_METNO,
+                FORECAST_SOURCE_OPENMETEO,
+            ]
+        else:
+            order = [source]
+
+        for src in order:
+            result = await self._fetch_single_source(lat, lon, src, session)
+            if result:
+                _LOGGER.debug(
+                    "Forecast fetched successfully from source '%s' for %s (%.4f, %.4f).",
+                    src, self.city or self.station_id, lat, lon,
+                )
+                return result, src
+            _LOGGER.warning(
+                "Forecast source '%s' returned no data for %s (%.4f, %.4f)%s.",
+                src,
+                self.city or self.station_id,
+                lat,
+                lon,
+                " – trying next source" if (source == FORECAST_SOURCE_AUTO and src != order[-1]) else "",
+            )
+
+        _LOGGER.error(
+            "All forecast sources failed for %s (%.4f, %.4f).",
+            self.city or self.station_id, lat, lon,
+        )
+        return [], ""
+
+    async def _fetch_single_source(
+        self,
+        lat: float,
+        lon: float,
+        source: str,
+        session: aiohttp.ClientSession,
+    ) -> list[dict[str, Any]]:
+        """Fetch forecast from a single named source. Returns [] on failure."""
+        try:
+            if source == FORECAST_SOURCE_WUNDERGROUND:
+                if not self.api_key:
+                    _LOGGER.debug(
+                        "Skipping WU forecast: no API key available."
+                    )
+                    return []
+                return await fetch_wunderground_forecast(lat, lon, self.api_key, session)
+            if source == FORECAST_SOURCE_METNO:
+                return await fetch_metno_forecast(lat, lon, session)
+            if source == FORECAST_SOURCE_OPENMETEO:
+                return await fetch_open_meteo_forecast(lat, lon, session)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("Forecast source '%s' raised an error: %s", source, exc)
+        return []
 
     @staticmethod
     def _determine_condition(data: dict[str, Any]) -> str:

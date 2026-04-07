@@ -1,27 +1,39 @@
-"""Weather Underground PWS API helpers + Open-Meteo forecast + geocoding.
+"""Weather Underground PWS API helpers + multi-source forecast + geocoding.
 
 Converts imperial observations to metric units, enriches with calculated
 values (cloud base, absolute humidity, wind chill, Hungarian compass),
-fetches geocoding from Open-Meteo and forecast from Open-Meteo API.
+fetches geocoding from Open-Meteo and forecast from multiple sources:
+  1. Wunderground / Weather.com forecast API  (uses WU API key)
+  2. MET.no Locationforecast 2.0              (free, no key needed)
+  3. Open-Meteo                               (free, no key needed)
 
-Demo / tesztelési mód: ha nincs API kulcs megadva, az integráció megpróbál
-egy nyilvánosan elérhető kulcsot automatikusan beszerezni, így API kulcs
-nélkül is korlátozott mértékben működőképes marad. Saját API kulcs megadása
-javasolt a megbízható, hosszú távú működéshez.
+Az elorejelzes-forrasok prioritasa (automatikus modban):
+  WU elorejelzes → MET.no → Open-Meteo (fallback lanc)
+
+Demo / tesztelesi mod: ha nincs API kulcs megadva, az integracio megprobal
+egy nyilvanosan elerheto kulcsot automatikusan beszerezni, igy API kulcs
+nelkul is korlatozott mertekben mukodokepesmarad. Sajat API kulcs megadasa
+javasolt a megbizahto, hosszu tavu mukodeshez.
 
 Keszito: Aiasz
-Verzio: 1.3.0
+Verzio: 1.4.0
 """
 from __future__ import annotations
 
 import asyncio
 import math
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 import aiohttp
 
-from .const import OPEN_METEO_GEOCODING_URL, OPEN_METEO_FORECAST_URL
+from .const import (
+    OPEN_METEO_GEOCODING_URL,
+    OPEN_METEO_FORECAST_URL,
+    WU_FORECAST_URL,
+    METNO_FORECAST_URL,
+)
 
 
 def f_to_c(f: float) -> float:
@@ -329,3 +341,260 @@ def _map_weathercode_to_condition(code: int | None) -> str:
     if code in (95, 96, 99):
         return "lightning"
     return "cloudy"
+
+
+# ---------------------------------------------------------------------------
+# Weather Underground / Weather.com forecast
+# ---------------------------------------------------------------------------
+
+def _map_wu_iconcode_to_condition(code: int | None) -> str:
+    """Map Weather.com v3 icon code to Home Assistant condition string."""
+    if code is None:
+        return "unknown"
+    # Clear / sunny
+    if code in (31, 32, 33, 34):
+        return "sunny"
+    # Partly cloudy
+    if code in (29, 30, 44):
+        return "partlycloudy"
+    # Mostly cloudy / cloudy
+    if code in (26, 27, 28):
+        return "cloudy"
+    # Fog / haze / smoke
+    if code in (19, 20, 21, 22):
+        return "fog"
+    # Rain / drizzle / showers
+    if code in (9, 10, 11, 12, 39, 40, 45, 47):
+        return "rainy"
+    # Heavy rain
+    if code in (3,):
+        return "pouring"
+    # Snow / sleet
+    if code in (5, 6, 7, 8, 13, 14, 15, 16, 18, 41, 42, 43, 46):
+        return "snowy"
+    # Thunderstorm
+    if code in (0, 1, 2, 4, 17, 35, 36, 37, 38):
+        return "lightning"
+    return "cloudy"
+
+
+async def fetch_wunderground_forecast(
+    lat: float,
+    lon: float,
+    api_key: str,
+    session: aiohttp.ClientSession,
+) -> list[Dict[str, Any]]:
+    """Fetch 7-day daily forecast from Weather.com (WU) v3 API.
+
+    Returns a list of daily dicts compatible with Open-Meteo output, or []
+    on any error / missing data.
+    """
+    params = {
+        "geocode": f"{lat},{lon}",
+        "language": "hu-HU",
+        "units": "m",
+        "format": "json",
+        "apiKey": api_key,
+    }
+    try:
+        async with asyncio.timeout(15):
+            async with session.get(WU_FORECAST_URL, params=params) as resp:
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+    except (asyncio.TimeoutError, aiohttp.ClientError, ValueError):
+        return []
+
+    dates = data.get("validTimeLocal") or []
+    temp_max = data.get("calendarDayTemperatureMax") or []
+    temp_min = data.get("calendarDayTemperatureMin") or []
+    precip_qpf = data.get("qpf") or []
+    icon_codes = data.get("daypart", [{}])[0].get("iconCode") or data.get("iconCode") or []
+    # The top-level iconCode list (day icon, prefer that)
+    if not icon_codes:
+        icon_codes = []
+
+    forecast = []
+    for i, ts in enumerate(dates):
+        # normalise to date string "YYYY-MM-DD"
+        try:
+            date_str = ts[:10]
+        except (TypeError, IndexError):
+            date_str = ts
+
+        forecast.append(
+            {
+                "datetime": date_str,
+                "temperature": temp_max[i] if i < len(temp_max) else None,
+                "templow": temp_min[i] if i < len(temp_min) else None,
+                "precipitation": precip_qpf[i] if i < len(precip_qpf) else None,
+                "condition": _map_wu_iconcode_to_condition(
+                    icon_codes[i] if i < len(icon_codes) else None
+                ),
+                "cloud_coverage": None,
+            }
+        )
+
+    return forecast
+
+
+# ---------------------------------------------------------------------------
+# MET.no forecast
+# ---------------------------------------------------------------------------
+
+# MET.no requires a descriptive User-Agent per their ToS
+_METNO_HEADERS = {
+    "User-Agent": "ha-wunderground-pws/1.4.0 github.com/aiasz/ha-wunderground-pws",
+}
+
+# Map MET.no symbol_code prefix to HA condition
+_METNO_SYMBOL_MAP: dict[str, str] = {
+    "clearsky": "sunny",
+    "fair": "sunny",
+    "partlycloudy": "partlycloudy",
+    "mostlycloudy": "cloudy",
+    "cloudy": "cloudy",
+    "fog": "fog",
+    "lightrain": "rainy",
+    "rain": "rainy",
+    "heavyrain": "pouring",
+    "lightrainshowers": "rainy",
+    "rainshowers": "rainy",
+    "heavyrainshowers": "pouring",
+    "lightsleet": "snowy-rainy",
+    "sleet": "snowy-rainy",
+    "heavysleet": "snowy-rainy",
+    "lightsleetshowers": "snowy-rainy",
+    "sleetshowers": "snowy-rainy",
+    "heavysleetshowers": "snowy-rainy",
+    "lightsnow": "snowy",
+    "snow": "snowy",
+    "heavysnow": "snowy",
+    "lightsnowshowers": "snowy",
+    "snowshowers": "snowy",
+    "heavysnowshowers": "snowy",
+    "thunder": "lightning",
+    "lightrainandthunder": "lightning-rainy",
+    "rainandthunder": "lightning-rainy",
+    "heavyrainandthunder": "lightning-rainy",
+    "lightsleetandthunder": "lightning-rainy",
+    "sleetandthunder": "lightning-rainy",
+    "lightsnowandthunder": "lightning-rainy",
+    "snowandthunder": "lightning-rainy",
+    "lightrainshowersandthunder": "lightning-rainy",
+    "rainshowersandthunder": "lightning-rainy",
+    "heavyrainshowersandthunder": "lightning-rainy",
+    "lightsleetshowersandthunder": "lightning-rainy",
+    "sleetshowersandthunder": "lightning-rainy",
+    "lightsnowshowersandthunder": "lightning-rainy",
+    "snowshowersandthunder": "lightning-rainy",
+}
+
+
+def _map_metno_symbol(symbol_code: str | None) -> str:
+    """Map a MET.no symbol_code to a Home Assistant condition."""
+    if not symbol_code:
+        return "unknown"
+    # strip _day / _night / _polartwilight suffix: "clearsky_day" → "clearsky"
+    base = symbol_code.split("_")[0]
+    return _METNO_SYMBOL_MAP.get(base, "partlycloudy")
+
+
+async def fetch_metno_forecast(
+    lat: float,
+    lon: float,
+    session: aiohttp.ClientSession,
+) -> list[Dict[str, Any]]:
+    """Fetch 7-day daily forecast from MET.no (free, no key needed).
+
+    Aggregates hourly data to daily: uses max temp, min temp, total
+    precipitation, and the most-frequent daytime symbol code.
+    Returns a list of daily dicts, or [] on error.
+    """
+    params = {"lat": round(lat, 4), "lon": round(lon, 4)}
+    try:
+        async with asyncio.timeout(20):
+            async with session.get(
+                METNO_FORECAST_URL, params=params, headers=_METNO_HEADERS
+            ) as resp:
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+    except (asyncio.TimeoutError, aiohttp.ClientError, ValueError):
+        return []
+
+    timeseries = (data.get("properties") or {}).get("timeseries") or []
+    if not timeseries:
+        return []
+
+    # Aggregate hourly → daily buckets
+    daily: dict[str, dict[str, Any]] = {}
+
+    for entry in timeseries:
+        ts_str = entry.get("time", "")
+        try:
+            dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+
+        date_key = dt.strftime("%Y-%m-%d")
+        instant = (entry.get("data") or {}).get("instant", {}).get("details") or {}
+        temp = _safe_float(instant.get("air_temperature"))
+
+        # Prefer next_12_hours symbol for daytime, fall back to next_6_hours / next_1_hour
+        next12 = (entry.get("data") or {}).get("next_12_hours") or {}
+        next6 = (entry.get("data") or {}).get("next_6_hours") or {}
+        next1 = (entry.get("data") or {}).get("next_1_hours") or {}
+
+        symbol = (
+            (next12.get("summary") or {}).get("symbol_code")
+            or (next6.get("summary") or {}).get("symbol_code")
+            or (next1.get("summary") or {}).get("symbol_code")
+        )
+        precip = _safe_float(
+            (next6.get("details") or {}).get("precipitation_amount")
+            or (next1.get("details") or {}).get("precipitation_amount")
+        )
+
+        if date_key not in daily:
+            daily[date_key] = {
+                "temps": [],
+                "precip": 0.0,
+                "symbols": {},
+            }
+        if temp is not None:
+            daily[date_key]["temps"].append(temp)
+        if precip is not None:
+            daily[date_key]["precip"] += precip
+        if symbol:
+            daily[date_key]["symbols"][symbol] = (
+                daily[date_key]["symbols"].get(symbol, 0) + 1
+            )
+
+    # Build output list (7 days max, skip past dates)
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    forecast = []
+    for date_key in sorted(daily.keys()):
+        if date_key < today_str:
+            continue
+        if len(forecast) >= 7:
+            break
+        bucket = daily[date_key]
+        temps = bucket["temps"]
+        temp_max = round(max(temps), 1) if temps else None
+        temp_min = round(min(temps), 1) if temps else None
+        # Most frequent symbol
+        symbols = bucket["symbols"]
+        dominant = max(symbols, key=symbols.get) if symbols else None
+        forecast.append(
+            {
+                "datetime": date_key,
+                "temperature": temp_max,
+                "templow": temp_min,
+                "precipitation": round(bucket["precip"], 1),
+                "condition": _map_metno_symbol(dominant),
+                "cloud_coverage": None,
+            }
+        )
+
+    return forecast

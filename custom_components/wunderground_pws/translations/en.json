@@ -8,7 +8,8 @@
           "station_id": "Station ID (e.g. IKAPOS27)",
           "api_key": "API Key (blank = auto-discover)",
           "scan_interval": "Update interval (minutes)",
-          "city": "Forecast city (e.g. Kaposvár) — optional"
+          "city": "Forecast city (e.g. Kaposvár) — optional",
+          "forecast_source": "Forecast source (auto / wunderground / metno / openmeteo)"
         }
       },
       "discover": {
@@ -36,7 +37,8 @@
           "station_id": "Station ID (e.g. IKAPOS27)",
           "api_key": "API Key (blank = auto-discover on reload)",
           "scan_interval": "Update interval (minutes)",
-          "city": "Forecast city (e.g. Kaposvár) — optional"
+          "city": "Forecast city (e.g. Kaposvár) — optional",
+          "forecast_source": "Forecast source (auto / wunderground / metno / openmeteo)"
         }
       }
     }
