@@ -1,218 +1,111 @@
-# Wunderground PWS - Home Assistant Custom Integration
+# Wunderground PWS – Home Assistant integráció
 
-**Készítő: Aiasz | Verzió: 1.4.1**
+**Készítő: Aiasz · Verzió: 1.5.0 · [English README](README.en.md)**
 
-Ez a custom integration lehetővé teszi, hogy bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait megjelenítsd a Home Assistantban — közvetlenül az **official WU API**-n keresztül, imperial → metrikus konverzióval.  
-Az előrejelzés adatokat **több forrásból** szerezheti be, automatikus fallback logikával.
+Bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait
+megjeleníti a Home Assistantban – az **official WU API**-n keresztül, metrikus egységekkel – és mellé
+**több szolgáltatóból** (Weather Underground, MET Norway, Open-Meteo) ad előrejelzést automatikus
+tartalék-lánccal. Magyar és angol nyelven használható.
+
+> A fejlesztés iránya és ütemterve: lásd a [CHANGELOG](CHANGELOG.md)-ot. Köszönet az ötletgazdáknak: [CREDITS](CREDITS.md).
 
 ---
 
 ## Funkciók
 
-- **Állítható állomás azonosító**: bármely WU PWS állomás azonosító megadható (pl. IKAPOS27)
-- **API kulcs (opcionális)**: saját kulcs megadható, de **nem kötelező** — ha üresen hagyod, az integráció automatikusan beszerez egy működő kulcsot (demo/tesztelési mód)
-- **Automatikus kulcs-újrabeszerzés**: ha a kulcs lejár vagy érvénytelenné válik, az integráció futás közben önállóan beszerez egy újat és elmenti
-- **Állítható frissítési időköz**: 1–60 perc között, menet közben is módosítható
-- **Opcionális előrejelzési város**: a HA időjárás kártyán 7 napos előrejelzés jelenik meg (pl. Kaposvár)
-- **Többforrású előrejelzés automatikus fallback-kel** (lásd alább)
-- **Weather entity**: kompatibilis a HA időjárás kártyákkal, 7 napos előrejelzéssel
-- **16 sensor entitás**: hőmérséklet, érzett hőmérséklet, harmatpont, hőérzet index, szélhűtési index, páratartalom, légnyomás, szélerősség, széllökés, szélirány (fokkal), szélirány (magyar égtáj), csapadék, csapadék-intenzitás, napsugárzás, abszolút páratartalom, felhőalap, UV-index
-- **Imperiális → metrikus konverzió**: F→C, mph→km/h, inHg→hPa, inch→mm
-- **Options Flow**: beállítások újraindítás nélkül módosíthatóak
-
----
-
-## Előrejelzés-források
-
-Az integráció **három különböző forrásból** képes 7 napos előrejelzést lekérni:
-
-| Forrás | API | API kulcs szükséges? |
-|---|---|---|
-| `wunderground` | Weather.com v3 Forecast API | Igen (WU API kulcs) |
-| `metno` | MET.no Locationforecast 2.0 | Nem (ingyenes) |
-| `openmeteo` | Open-Meteo Forecast API | Nem (ingyenes) |
-
-### Prioritás és fallback logika
-
-A `forecast_source` beállítás értéke:
-
-| Érték | Viselkedés |
-|---|---|
-| `auto` *(alapértelmezett)* | WU forecast → MET.no → Open-Meteo (az első sikeres forrást használja) |
-| `wunderground` | Csak WU forecast (ha sikertelen, nincs fallback) |
-| `metno` | Csak MET.no (ha sikertelen, nincs fallback) |
-| `openmeteo` | Csak Open-Meteo (ha sikertelen, nincs fallback) |
-
-Az `auto` módban ha pl. a WU forecast API nem ad vissza adatot (nincs kulcs, vagy timeout), az integráció automatikusan megpróbál a következő forrástól adatot lekérni — anélkül hogy bármit kellene kézzel beállítani.
-
-A HA naplóban látható, hogy melyik forrás volt sikeres, és melyiket kellett kihagyni.  
-Az aktuálisan használt forrás megjelenik az időjárás entitás `forecast_source_used` extra attribútumában is.
-
----
-
-## Demo / tesztelési mód (API kulcs nélkül)
-
-Az integráció **API kulcs megadása nélkül is elindítható**. Ilyen esetben az első inicializáláskor az integráció automatikusan beszerez egy nyilvánosan elérhető kulcsot, és azt elmenti — így a következő újraindításkor már azt használja, nem kér le újat feleslegesen.
-
-| Helyzet | Mi történik? |
-|---|---|
-| API kulcs nincs megadva | Első induláskor automatikusan beszerzi és elmenti |
-| Saját kulcs van megadva | Azt használja, auto-keresés nem fut |
-| A kulcs lejár / érvénytelen lesz (401/403 hiba) | Automatikusan new kulcsot szerez és elmenti |
-| Auto-keresés sikertelen (max. 3 kísérlet) | Hibaüzenet, manuális megadás szükséges |
-
-> **Megjegyzés:** A demo módban szerzett kulcs egy nyilvánosan elérhető, megosztott kulcs. Tartós, megbízható használathoz ajánlott saját WU API kulcsot igényelni a [Weather Underground](https://www.wunderground.com/member/api-keys) oldalán.
-
----
-
-## Adatok forrása
-
-| Adat | Forrás | API |
-|---|---|---|
-| Jelenlegi időjárás (PWS mérés) | Weather Underground | WU API kulccsal (auto vagy saját) |
-| 7 napos előrejelzés | WU / MET.no / Open-Meteo | részletek fent |
-| Geocoding (város → koordináta) | Open-Meteo Geocoding | ingyenes, kulcs nélkül |
-
-WU megfigyelés végpontja:
-```
-https://api.weather.com/v2/pws/observations/current
-```
-WU előrejelzés végpontja:
-```
-https://api.weather.com/v3/wx/forecast/daily/7day
-```
-MET.no előrejelzés:
-```
-https://api.met.no/weatherapi/locationforecast/2.0/compact
-```
-Open-Meteo előrejelzés:
-```
-https://api.open-meteo.com/v1/forecast
-```
-Open-Meteo Geocoding:
-```
-https://geocoding-api.open-meteo.com/v1/search
-```
-
----
+- **Saját állomás mérései**: hőmérséklet, érzett hőmérséklet, harmatpont, hőérzet/szélhűtési index, páratartalom,
+  légnyomás, szél (sebesség, lökés, irány fokban és égtájban), csapadék (napi, intenzitás), napsugárzás, UV,
+  számított értékek (felhőalap, abszolút páratartalom, nedves hőmérséklet).
+- **Weather entitás** 7 napos (illetve a forrás által adott) napi előrejelzéssel.
+- **Többforrású előrejelzés fallback-kel**: Weather Underground → MET Norway → Open-Meteo (vagy egy kiválasztott forrás).
+- **Magyar és angol felület** – a Home Assistant nyelvét követi (entitásnevek, beállítások, szélirány).
+- **Állomás-állapot**: `Station online` és `Observation age` diagnosztikai entitás; kiugró mérések szűrése.
+- **Pontosabb állapotjelzés**: éjszaka `clear-night`, hó/ónos eső, köd, erős szél, derültség a napsugárzásból.
+- **Stabil működés**: a hibás előrejelzés nem érinti a mérések frissítését; az utolsó jó előrejelzés megmarad;
+  az előrejelzés és a város-geokódolás gyorsítótárazott (kevesebb API-hívás).
+- **Demo mód** (opcionális API kulcs): lásd lent.
+- **Beállítások újraindítás nélkül** módosíthatók (Configure).
 
 ## Telepítés
 
-### HACS (ajánlott)
-1. HACS -> Integrations -> `+` -> `Custom repositories`
-2. Add hozzá: `https://github.com/aiasz/ha-wunderground-pws` (kategória: Integration)
-3. Telepítés után indítsd újra a HA-t
+**HACS (ajánlott):** HACS → Integrations → `⋮` → *Custom repositories* → `https://github.com/aiasz/ha-wunderground-pws`
+(kategória: *Integration*) → telepítés → Home Assistant újraindítása.
 
-### Manuális
-1. Másold a `custom_components/wunderground_pws` mappát a HA `config/custom_components/` könyvtárába
-2. Töröld a `__pycache__` mappát ha létezik
-3. Indítsd újra a Home Assistantot
+**Manuálisan:** másold a `custom_components/wunderground_pws` mappát a `config/custom_components/` alá, indítsd újra a HA-t.
 
----
+Minimum Home Assistant verzió: **2024.12.0**.
 
 ## Beállítás
 
-1. **Settings -> Devices & Services -> Add Integration**
-2. Keresd: `Wunderground PWS`
-3. Add meg az **Állomás azonosítót** (pl. `IKAPOS27`)
-4. Az **API kulcs** mező **opcionális**:
-   - **Üresen hagyva** → az integráció automatikusan beszerzi és elmenti a kulcsot (demo mód), majd megerősítő képernyőn mutatja a talált kulcsot
-   - **Saját kulcs megadva** → azt használja közvetlenül
-5. Add meg a **frissítési időközt** percben (1–60)
-6. Add meg az **előrejelzési várost** *(opcionális)* — pl. `Kaposvár` vagy `Budapest`  
-   _(Ha üresen hagyod, az állomás koordinátái alapján töltődik be az előrejelzés.)_
-7. Állítsd be az **Előrejelzés forrását** *(opcionális, alapértelmezett: `auto`)*:
-   - `auto` — automatikus fallback: WU → MET.no → Open-Meteo
-   - `wunderground` — csak Weather.com/WU forecast API
-   - `metno` — csak MET.no
-   - `openmeteo` — csak Open-Meteo
+*Settings → Devices & services → Add integration → „Wunderground PWS”*
 
-### Beállítások módosítása
-**Settings -> Devices & Services -> Wunderground PWS -> Configure**
+| Mező | Leírás |
+|---|---|
+| Állomás azonosító | pl. `IKAPOS27` (az azonosító később nem módosítható – másik állomáshoz vegyél fel új bejegyzést) |
+| API kulcs | saját kulcs a [WU fiókodból](https://www.wunderground.com/member/api-keys); **üresen hagyva demo mód** |
+| Frissítési időköz | 1–60 perc (ajánlott: 5) |
+| Előrejelzési város | opcionális (pl. `Kaposvár`); üresen az állomás koordinátái |
+| Előrejelzés forrása | `auto` / csak WU / csak MET Norway / csak Open-Meteo |
 
-> Az API kulcs mező itt is üresen hagyható — az integráció újratöltéskor automatikusan beszerzi az új kulcsot.
+Az API kulcs és a többi beállítás később: *Configure*. Az üresen hagyott kulcs automatikus keresést indít.
 
----
+### Demo mód (API kulcs nélkül)
+Üres kulcs esetén az integráció megpróbál egy, a WU weboldalába ágyazott nyilvános kulcsot kinyerni; a talált kulcsot
+egy valódi hívással **ellenőrzi**, mielőtt elmenti. Sikertelen keresés után 15 perc várakozás van (legfeljebb 3 próba),
+utána a Home Assistant újrahitelesítést kér. A kézzel megadott kulcsot az integráció soha nem cseréli le.
 
-## Időjárás kártya (7 napos előrejelzéssel)
+> **Fontos:** a megosztott kulcsot a WU bármikor elutasíthatja (a 2026-10-31-i ellenőrzéskor a weboldalról kinyert kulcsot
+> már a megfigyelés végpont sem fogadta el). **Megbízható, tartós működéshez saját API kulcs kell** – a WU PWS-tulajdonosoknak
+> ingyen adja: <https://www.wunderground.com/member/api-keys>. Kulcs nélkül az előrejelzést a MET Norway / Open-Meteo is tudja
+> adni (forrás: `metno` vagy `openmeteo`), de az állomás mérései kulcs nélkül nem érhetők el.
+
+## Adatforrások
+
+| Adat | Forrás | Kulcs |
+|---|---|---|
+| Aktuális mérés (PWS) | Weather Underground `v2/pws/observations/current` | igen |
+| Előrejelzés | WU `v3/wx/forecast/daily/5day` (tartalék: `7day`) | igen |
+| Előrejelzés | MET Norway Locationforecast 2.0 (CC BY 4.0) | nem |
+| Előrejelzés, geokódolás | Open-Meteo (CC BY 4.0) | nem |
+
+Az `auto` mód az első sikeres forrást használja; melyiket, azt a `forecast_source_used` attribútum mutatja.
+A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
+
+## Entitások
+
+| Entitás (kulcs) | Egység | Megjegyzés |
+|---|---|---|
+| `temperature`, `dew_point`, `heat_index`, `wind_chill` | °C | |
+| `feels_like` | °C | hidegben szélhűtés, melegben hőindex, egyébként a hőmérséklet |
+| `wet_bulb` | °C | alapból kikapcsolt |
+| `humidity` / `absolute_humidity` | % / g/m³ | |
+| `pressure` | hPa | |
+| `wind_speed`, `wind_gust` | km/h | |
+| `wind_bearing` | ° | |
+| `wind_compass` | enum | N…NNW / É…ÉÉNy – a nyelvnek megfelelően |
+| `wind_compass_hu` | szöveg | régi, magyar égtáj (kompatibilitás) |
+| `precipitation_rate` / `precipitation_today` | mm/h / mm | |
+| `solar_radiation` / `uv_index` / `cloud_base` | W/m² / – / m | |
+| `observation_age` | perc | diagnosztika |
+| `station_online` | be/ki | diagnosztika: friss-e az utolsó mérés |
+| `weather` | – | aktuális állapot + napi előrejelzés |
+
+## Időjárás kártya
 
 ```yaml
 type: weather-forecast
-entity: weather.wunderground_pws_ikapos27
+entity: weather.wunderground_pws_ikapos27_weather
 forecast_type: daily
 ```
+(Régebbi telepítéseknél az entitás azonosítója változatlan marad, pl. `weather.wunderground_pws_ikapos27`.)
 
----
+## Frissítés régebbi verzióról
+A bejegyzés automatikusan migrálódik (konfig-verzió 3); az entitások azonosítói nem változnak. Ha az opciókban
+korábban módosítottad az állomásazonosítót, az a bejegyzés adatává válik, így az entitások megmaradnak.
 
-## Szenzor lista
-
-| Szenzor | Egység | Leírás |
-|---|---|---|
-| Hőmérséklet | °C | Mért hőmérséklet |
-| Érzett hőmérséklet | °C | Hőérzet (heat index) |
-| Harmatpont | °C | Harmatpont hőmérséklet |
-| Hőérzet index | °C | Heat index |
-| Szélhűtési index | °C | Wind chill (ha temp < 10°C) |
-| Páratartalom | % | Relatív páratartalom |
-| Abszolút páratartalom | g/m³ | Számított abszolút páratartalom |
-| Légnyomás | hPa | Tengerszinti légnyomás |
-| Szélerősség | km/h | Szélsebesség |
-| Széllökés | km/h | Maximális széllökés |
-| Szélirány (fok) | ° | Szélirány fokokban |
-| Szélirány (magyar) | — | Magyar égtáj (pl. ÉK, DNy) |
-| Csapadék (ma) | mm | Napi csapadék összesen |
-| Csapadék intenzitás | mm/h | Aktuális csapadék intenzitás |
-| Napsugárzás | W/m² | Globális napsugárzás |
-| Felhőalap | m | Számított felhőalap magasság |
-| UV-index | — | UV sugárzás indexe |
-
----
-
-## Verziótörténet
-
-### v1.4.1 (2026-04-07)
-- **Javítás: NaN km/h szélsebesség az előrejelzés kártyán**
-- Open-Meteo: `wind_speed_10m_max` hozzáadva a napi lekéréshez
-- MET.no: óránkénti `wind_speed` (m/s → km/h) kinyerése és napi maximum aggregálása
-- WU forecast: `daypart.windSpeed` kinyerése, napi maximum
-- `weather.py`: `wind_speed` mező átadása a `Forecast` objektumba
-- Készítő: Aiasz
-
-### v1.4.0 (2026-04-07)
-- **Többforrású előrejelzés** bevezetése automatikus fallback logikával
-- Új `forecast_source` beállítás: `auto` / `wunderground` / `metno` / `openmeteo`
-- **WU (Weather.com) v3 forecast API** támogatás hozzáadva
-- **MET.no Locationforecast 2.0** támogatás hozzáadva (ingyenes, kulcs nélkül)
-- `auto` módban prioritás: WU forecast → MET.no → Open-Meteo
-- `forecast_source_used` extra attribútum az időjárás entitáson (melyik forrásból jött az adat)
-- README frissítés a multi-source dokumentációval
-- Készítő: Aiasz
-
-### v1.3.0 (2026-03-02)
-- **Demo / tesztelési mód**: API kulcs megadása nélkül is működik
-- **Automatikus kulcs-beszerzés**: ha nincs megadva kulcs, az integráció induláskor automatikusan beszerzi
-- **Automatikus kulcs-újrabeszerzés**: 401/403 API hiba esetén futás közben is megújítja a kulcsot és elmenti
-- **Kétlépéses telepítési folyamat**: API kulcs nélkül egy megerősítő képernyő jelenik meg a talált kulccsal
-- Készítő: Aiasz
-
-### v1.2.0 (2026-02-27)
-- **API-alapú adatlekérdezés** (nincs HTML scraping)
-- **7 napos előrejelzés** az időjárás kártyán (Open-Meteo, ingyenes)
-- **Előrejelzési város** megadható a UI-ban (Open-Meteo geocoding)
-- **Szélirány (magyar égtáj)** önálló szenzorként visszakerült
-- Imperiális → metrikus konverzió (F→C, mph→km/h, inHg→hPa, inch→mm)
-- Új számított szenzorök: felhőalap, abszolút páratartalom, szélhűtési index
-- API kulcs bekerült a UI beállításába
-- Készítő: Aiasz
-
-### v1.1.0
-- API-alapú megközelítés, BeautifulSoup függőség eltávolítva
-
-### v1.0.0
-- Első kiadás - HTML dashboard scraping
-
----
+## Fejlesztés
+Lásd: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (tesztek, új szolgáltató hozzáadása).
+Hibát vagy ötletet a [GitHub Issues](https://github.com/aiasz/ha-wunderground-pws/issues)-ben jelezz.
 
 ## Licenc
-
-MIT License - Készítő: Aiasz
+MIT – Készítő: Aiasz ([LICENSE](LICENSE))

@@ -1,10 +1,21 @@
-"""Constants for Wunderground PWS integration.
+"""Constants for the Wunderground PWS integration.
 
-Keszito: Aiasz
-Verzio: 1.4.0
+Author: Aiasz
+Plan: PLAN.md (v1.5.0 foundation - B06, B14, F08, F15)
+
+The integration version lives ONLY in ``manifest.json`` (single source of truth);
+never hard-code it in modules (see PLAN.md B14).
 """
 
+from __future__ import annotations
+
+from datetime import timedelta
+
 DOMAIN = "wunderground_pws"
+
+# Config entry schema version. 3 = all settings merged into ``entry.data`` and
+# station id fixed for the lifetime of the entry (see ``async_migrate_entry``).
+CONFIG_ENTRY_VERSION = 3
 
 DEFAULT_STATION_ID = "IKAPOS27"
 DEFAULT_SCAN_INTERVAL = 5  # minutes
@@ -12,8 +23,8 @@ MIN_SCAN_INTERVAL = 1
 MAX_SCAN_INTERVAL = 60
 DEFAULT_CITY = ""
 
-# Forecast sources
-FORECAST_SOURCE_AUTO = "auto"          # WU → MET.no → Open-Meteo (fallback chain)
+# --- Forecast sources --------------------------------------------------------
+FORECAST_SOURCE_AUTO = "auto"  # WU -> MET.no -> Open-Meteo (fallback chain)
 FORECAST_SOURCE_WUNDERGROUND = "wunderground"
 FORECAST_SOURCE_METNO = "metno"
 FORECAST_SOURCE_OPENMETEO = "openmeteo"
@@ -24,19 +35,40 @@ FORECAST_SOURCES = [
     FORECAST_SOURCE_OPENMETEO,
 ]
 DEFAULT_FORECAST_SOURCE = FORECAST_SOURCE_AUTO
+# Order used by ``auto`` mode.
+FORECAST_AUTO_ORDER = [
+    FORECAST_SOURCE_WUNDERGROUND,
+    FORECAST_SOURCE_METNO,
+    FORECAST_SOURCE_OPENMETEO,
+]
 
+# --- Endpoints ----------------------------------------------------------------
 WU_API_URL = "https://api.weather.com/v2/pws/observations/current"
-WU_FORECAST_URL = "https://api.weather.com/v3/wx/forecast/daily/7day"
+# Daily forecast products, tried in this order. PWS-owner keys are documented for
+# the 5-day product (community integrations use it); 7-day is kept as a fallback
+# for keys that include it. A product the key is not authorised for answers 401/403.
+WU_FORECAST_URL = "https://api.weather.com/v3/wx/forecast/daily/{product}"
+WU_FORECAST_PRODUCTS = ("5day", "7day")
+WU_DASHBOARD_URL = "https://www.wunderground.com/dashboard/pws/{station_id}"
 OPEN_METEO_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 METNO_FORECAST_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 
+# --- Config / option keys -------------------------------------------------------
 CONF_STATION_ID = "station_id"
 CONF_API_KEY = "api_key"
+CONF_API_KEY_SOURCE = "api_key_source"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_CITY = "city"
 CONF_FORECAST_SOURCE = "forecast_source"
 
+# Where the API key came from. ``legacy`` = migrated from <1.5 (origin unknown);
+# it behaves like ``auto``: the key may be re-discovered when it stops working.
+API_KEY_SOURCE_MANUAL = "manual"
+API_KEY_SOURCE_AUTO = "auto"
+API_KEY_SOURCE_LEGACY = "legacy"
+
+# --- Coordinator data keys -------------------------------------------------------
 ATTR_TEMPERATURE = "temperature"
 ATTR_FEELS_LIKE = "feels_like"
 ATTR_DEW_POINT = "dew_point"
@@ -46,6 +78,8 @@ ATTR_WIND_SPEED = "wind_speed"
 ATTR_WIND_GUST = "wind_gust"
 ATTR_WIND_BEARING = "wind_bearing"
 ATTR_WIND_COMPASS = "wind_compass"
+ATTR_WIND_COMPASS_HU = "wind_compass_hu"
+ATTR_WIND_COMPASS_SLUG = "wind_compass_slug"  # lower-case enum state, e.g. "nne"
 ATTR_HEAT_INDEX = "heat_index"
 ATTR_PRECIPITATION = "precipitation"
 ATTR_PRECIPITATION_RATE = "precipitation_rate"
@@ -53,10 +87,10 @@ ATTR_SOLAR_RADIATION = "solar_radiation"
 ATTR_UV_INDEX = "uv_index"
 ATTR_STATION_ID = "station_id"
 ATTR_LAST_UPDATED = "last_updated"
-ATTR_WIND_COMPASS_HU = "wind_compass_hu"
 ATTR_CLOUD_BASE = "cloud_base"
 ATTR_ABSOLUTE_HUMIDITY = "absolute_humidity"
 ATTR_WIND_CHILL = "wind_chill"
+ATTR_WET_BULB = "wet_bulb"
 ATTR_CLOUD_COVERAGE = "cloud_coverage"
 ATTR_LAT = "lat"
 ATTR_LON = "lon"
@@ -64,3 +98,69 @@ ATTR_LOCATION_NAME = "location_name"
 ATTR_COUNTRY = "country"
 ATTR_ELEVATION_M = "elevation_m"
 ATTR_CONDITION = "condition"
+ATTR_OBS_AGE_MIN = "observation_age_min"
+ATTR_STATION_ONLINE = "station_online"
+
+# --- Update behaviour ------------------------------------------------------------
+# Forecast is fetched at most this often, independent of the (short) station
+# polling interval. Fixes PLAN.md B08 (forecast APIs were hit every cycle).
+FORECAST_TTL = timedelta(minutes=30)
+# A failed forecast keeps the previous data for at most this long (B07).
+FORECAST_MAX_STALE = timedelta(hours=12)
+
+# Station is "offline" when its last observation is older than
+# max(OBS_MIN_STALE_MINUTES, OBS_STALE_FACTOR * scan_interval) minutes (F08).
+OBS_STALE_FACTOR = 3
+OBS_MIN_STALE_MINUTES = 20
+
+# Network time budgets (seconds).
+TIMEOUT_OBSERVATION = 30
+TIMEOUT_FORECAST = 20
+TIMEOUT_GEOCODING = 10
+TIMEOUT_KEY_DISCOVERY = 25
+
+# WU API key auto-discovery ("demo mode", kept by decision D1). To avoid hammering
+# the WU website, failed discoveries are rate limited.
+KEY_REDISCOVERY_COOLDOWN = timedelta(minutes=15)
+MAX_REDISCOVERY_ATTEMPTS = 3
+
+# --- Data quality (F08) -----------------------------------------------------------
+# Physically plausible ranges of the *converted* (metric) values. Anything outside
+# is treated as a sensor glitch: the previous good value is kept instead.
+PLAUSIBLE_RANGES: dict[str, tuple[float, float]] = {
+    ATTR_TEMPERATURE: (-60.0, 60.0),
+    ATTR_FEELS_LIKE: (-90.0, 80.0),
+    ATTR_DEW_POINT: (-90.0, 40.0),
+    ATTR_HEAT_INDEX: (-60.0, 80.0),
+    ATTR_HUMIDITY: (0.0, 100.0),
+    ATTR_PRESSURE: (850.0, 1090.0),
+    ATTR_WIND_SPEED: (0.0, 400.0),
+    ATTR_WIND_GUST: (0.0, 450.0),
+    ATTR_WIND_BEARING: (0.0, 360.0),
+    ATTR_PRECIPITATION_RATE: (0.0, 500.0),
+    ATTR_PRECIPITATION: (0.0, 2000.0),
+    ATTR_SOLAR_RADIATION: (0.0, 1700.0),
+    ATTR_UV_INDEX: (0.0, 20.0),
+}
+
+# --- Current-condition heuristics (F15) ---------------------------------------------
+# These are pragmatic heuristics for a station that cannot see the sky; every
+# threshold is a named constant so it can be reviewed and tuned in one place.
+RAIN_HEAVY_MM_H = 7.6  # >= : "pouring" (AMS-style heavy rain class)
+SNOW_MAX_TEMP_C = 0.0  # precipitation at/below -> snowy
+SLEET_MAX_TEMP_C = 2.0  # precipitation between snow limit and this -> snowy-rainy
+FOG_MIN_HUMIDITY = 97.0  # %
+FOG_MAX_SPREAD_C = 0.5  # temperature - dew point
+FOG_MAX_WIND_KMH = 8.0
+WINDY_MIN_KMH = 50.0  # sustained wind that overrides sky state
+SUN_MIN_ELEVATION_FOR_RATIO = 8.0  # degrees; below this the clearness ratio is unreliable
+CLEARNESS_SUNNY = 0.75  # measured/clear-sky irradiance >= -> sunny
+CLEARNESS_PARTLY = 0.35  # >= -> partlycloudy, below -> cloudy
+
+# --- Attribution --------------------------------------------------------------------
+ATTRIBUTION_WU = "Weather data provided by Weather Underground"
+ATTRIBUTION_FORECAST = {
+    FORECAST_SOURCE_WUNDERGROUND: "Forecast: Weather Underground / The Weather Company",
+    FORECAST_SOURCE_METNO: "Forecast: MET Norway (CC BY 4.0)",
+    FORECAST_SOURCE_OPENMETEO: "Forecast: Open-Meteo.com (CC BY 4.0)",
+}
