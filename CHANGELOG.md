@@ -6,6 +6,35 @@ Minden lényeges változás ebben a fájlban szerepel. A formátum a
 
 A `B##` / `F##` / `M#` / `S#` azonosítók a fejlesztési terv (`PLAN.md`) tételeire hivatkoznak.
 
+## [1.6.1] – 2026-10-31
+
+Kulcs nélküli megfigyelés-tartalék (F09): nyilvános Weather Underground városi oldal.
+
+### Hozzáadva
+- **Megfigyelés-fallback kulcs nélkül (F09):** ha a hivatalos WU API nem elérhető (nincs kulcs, a
+  kulcs elutasítva, az automatikus kulcskeresés kimerült), és be van állítva egy előrejelzési
+  **város**, az integráció a WU **nyilvános, bejelentkezés nélküli** városi oldaláról
+  (`wunderground.com/weather/{ország}/{város}`) olvassa ki az aktuális mérést – ez egy valódi,
+  szerveren renderelt oldal (ellenőrizve: a `/dashboard/pws/{állomás}` oldallal szemben, amely
+  JavaScript nélkül üres „no-data" vázat ad vissza, a városi oldal nyers HTTP-válasza tartalmazza
+  a tényleges hőmérsékletet, páratartalmat, légnyomást, szelet, harmatpontot, csapadékot).
+  **Fontos:** ez a WU saját választása szerinti *legközelebbi* állomás (pl. Kaposvárnál jelenleg
+  `IKAPOS10`), **nem feltétlenül** a beállított állomás – ez mindig átlátszóan jelzett az
+  `observation_source` és `fallback_source_station` attribútumban/szenzorban, soha nem keveredik
+  össze a beállított állomás saját adatával.
+- Az összes származtatott érték (érzett hőmérséklet, felhőalap, abszolút páratartalom, nedves
+  hőmérséklet) a tartalék forrásnál is a megszokott, közös képletekkel számolódik.
+- Új diagnosztikai szenzorok: `observation_source` (melyik forrás válaszolt), `source_station_id`
+  (a tartalék forrás állomása; alapból kikapcsolt).
+- Ötletgazda / ellenőrizte élesben: a felhasználó saját tesztje a `wunderground.com/weather/hu/…`
+  oldalon (2026-10-31).
+
+### Megjegyzés
+Ez **nem** a WU weboldal belső JavaScript-API-jának vagy sütijének felhasználása – a nyilvános,
+bejelentkezés nélküli oldal nyers, szerver által renderelt HTML-tartalmát olvassa, pontosan azt,
+amit egy látogató a böngészőjében „Oldal forráskódja" nézetben lát. A `/dashboard/pws/{id}` oldal
+(amely JavaScript-futtatást igényelne a saját állomás adatához) továbbra sem használt.
+
 ## [1.6.0] – 2026-10-31
 
 Óránkénti előrejelzés, külön előrejelzés-koordinátor és stabilitás. **Visszafelé kompatibilis**

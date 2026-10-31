@@ -265,3 +265,41 @@ def _sky_from_forecast(forecast_condition: str | None, *, night: bool) -> str | 
     if forecast_condition in (PARTLYCLOUDY, CLOUDY):
         return forecast_condition
     return None
+
+
+# --- WU public location page ("Today" conditions) icon slugs ----------------------------
+# Used by providers.wu_citypage. Only a few slugs have been directly observed on a live
+# page (e.g. "mostly-cloudy-night"); the rest are inferred from the common dash-separated,
+# ``-day``/``-night`` suffixed naming convention used throughout the page (same convention
+# as MET Norway's symbol_code). Unknown slugs fall back to "partlycloudy" rather than guessing.
+
+
+def map_wu_citypage_icon(slug: str | None) -> str | None:
+    """Map a WU location-page icon slug (e.g. ``mostly-cloudy-night``) to a condition."""
+    if not slug:
+        return None
+    slug = slug.lower()
+    night = slug.endswith("-night")
+
+    if "thunder" in slug:
+        return LIGHTNING_RAINY if ("rain" in slug or "shower" in slug) else LIGHTNING
+    if "sleet" in slug or ("rain" in slug and "snow" in slug):
+        return SNOWY_RAINY
+    if "snow" in slug:
+        return SNOWY
+    if "shower" in slug or "rain" in slug or "drizzle" in slug:
+        return POURING if "heavy" in slug else RAINY
+    if "fog" in slug or "haze" in slug or "mist" in slug:
+        return FOG
+    if "windy" in slug or "breezy" in slug:
+        return WINDY
+    if "cloudy" in slug and "mostly" not in slug and "partly" not in slug:
+        return CLOUDY
+    if "mostly-cloudy" in slug or "partly-cloudy" in slug:
+        return PARTLYCLOUDY
+    # "mostly-sunny"/"mostly-clear" are predominantly CLEAR (matches the WU
+    # numeric table, where e.g. code 33 "mostly clear (night)" -> CLEAR_NIGHT),
+    # so they fall through to the clear/sunny branch below rather than here.
+    if "clear" in slug or "sunny" in slug or "fair" in slug:
+        return CLEAR_NIGHT if night else SUNNY
+    return PARTLYCLOUDY

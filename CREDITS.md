@@ -10,6 +10,7 @@ megoldás más ötletén alapul, a forráskódban `Ötlet:` / `Idea:` megjegyzé
 | Funkció | Ötletgazda / projekt | Licenc | Mi származik tőle |
 |---|---|---|---|
 | Angol nyelvű változat, óránkénti előrejelzés, csapadék/pollen/levegőminőség | **ztarsoly (Zoli)** – [#1 issue](https://github.com/aiasz/ha-wunderground-pws/issues/1) | – | a három kért funkció |
+| Kulcs nélküli megfigyelés-fallback (F09, v1.6.1) – a nyilvános WU városi oldal ötlete és élő ellenőrzése | **Aiasz** (a felhasználó saját tesztje a `wunderground.com/weather/hu/…` oldalon) | – | a fallback-forrás azonosítása és a kulcsot/hitelesítést nem igénylő megoldás iránya |
 | HU+EN felület, tartós előrejelzés-tár, figyelmeztetés-szenzorok (terv) | [ztarsoly/ha-idokep-weather-and-forecast](https://github.com/ztarsoly/ha-idokep-weather-and-forecast) | MIT | csak funkcióötlet (az Időkép-adatot nem használjuk) |
 | HungaroMet közeli állomások, radar (terv) | [FabianGabor/HA-HungaroMet](https://github.com/FabianGabor/HA-HungaroMet), [ztarsoly/ha-hungaromet-weather-and-forecast](https://github.com/ztarsoly/ha-hungaromet-weather-and-forecast) | nincs megadva / MIT | csak ötlet |
 | Figyelmeztetések (terv) | [amaximus/met_alerts_hu](https://github.com/amaximus/met_alerts_hu) | MIT | csak ötlet |

@@ -49,12 +49,14 @@ from .const import (
     ATTR_HUMIDITY,
     ATTR_LAST_UPDATED,
     ATTR_OBS_AGE_MIN,
+    ATTR_OBSERVATION_SOURCE,
     ATTR_PRECIPITATION,
     ATTR_PRECIPITATION_RATE,
     ATTR_PRESSURE,
     ATTR_PRESSURE_CHANGE_3H,
     ATTR_PRESSURE_TENDENCY,
     ATTR_SOLAR_RADIATION,
+    ATTR_SOURCE_STATION_ID,
     ATTR_STATION_ID,
     ATTR_TEMP_MAX_TODAY,
     ATTR_TEMP_MIN_TODAY,
@@ -71,6 +73,7 @@ from .const import (
     ATTR_WU_CALLS_TODAY,
     FORECAST_AUTO_ORDER,
     FORECAST_SOURCE_BLEND,
+    OBSERVATION_SOURCES,
     PRESSURE_TENDENCIES,
 )
 from .coordinator import WundergroundConfigEntry
@@ -254,6 +257,27 @@ SENSOR_DESCRIPTIONS: tuple[WundergroundSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:counter",
+    ),
+    # Diagnostic (F09): which source actually answered this cycle - the
+    # official API, or the no-key public-page fallback.
+    WundergroundSensorEntityDescription(
+        key="observation_source",
+        data_key=ATTR_OBSERVATION_SOURCE,
+        translation_key="observation_source",
+        device_class=SensorDeviceClass.ENUM,
+        options=OBSERVATION_SOURCES,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:cloud-search-outline",
+    ),
+    # Diagnostic (F09): which nearby station the fallback's data actually came
+    # from (only set while that fallback is active).
+    WundergroundSensorEntityDescription(
+        key="source_station_id",
+        data_key=ATTR_SOURCE_STATION_ID,
+        translation_key="source_station_id",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        icon="mdi:weather-cloudy-alert",
     ),
 )
 

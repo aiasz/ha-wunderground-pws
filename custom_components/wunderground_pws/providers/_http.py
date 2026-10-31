@@ -58,8 +58,13 @@ async def _request_once(
     params: Mapping[str, Any] | None,
     headers: Mapping[str, str] | None,
     ok_statuses: tuple[int, ...],
+    decode: str,
 ) -> tuple[int, Any, Mapping[str, str]]:
-    """One GET attempt; failures are mapped to the typed errors."""
+    """One GET attempt; failures are mapped to the typed errors.
+
+    ``decode`` is ``"json"`` or ``"text"`` - the only two bodies a provider in
+    this integration ever needs to read.
+    """
     try:
         async with asyncio.timeout(timeout):
             async with session.get(url, params=params, headers=headers) as resp:
@@ -78,7 +83,11 @@ async def _request_once(
                     raise ProviderError(f"{provider}: HTTP {status}")
                 if status == 304:
                     return status, None, resp.headers
-                payload = await resp.json(content_type=None)
+                payload = (
+                    await resp.json(content_type=None)
+                    if decode == "json"
+                    else await resp.text(errors="replace")
+                )
                 return status, payload, resp.headers
     except ProviderError:
         raise
@@ -124,7 +133,43 @@ async def request_json(
                 params=params,
                 headers=headers,
                 ok_statuses=ok_statuses,
+                decode="json",
             )
+        except ProviderTransientError:
+            if attempt >= retries:
+                raise
+            attempt += 1
+            await _sleep(RETRY_BASE_DELAY * attempt + random.uniform(0.0, _RETRY_JITTER))
+
+
+async def request_text(
+    session: aiohttp.ClientSession,
+    url: str,
+    *,
+    provider: str,
+    timeout: float,
+    params: Mapping[str, Any] | None = None,
+    headers: Mapping[str, str] | None = None,
+    retries: int = DEFAULT_RETRIES,
+) -> str:
+    """GET ``url`` and return the response body as text (for HTML scraping).
+
+    Same error mapping and retry behaviour as :func:`request_json`.
+    """
+    attempt = 0
+    while True:
+        try:
+            _, text, _ = await _request_once(
+                session,
+                url,
+                provider=provider,
+                timeout=timeout,
+                params=params,
+                headers=headers,
+                ok_statuses=(200,),
+                decode="text",
+            )
+            return text
         except ProviderTransientError:
             if attempt >= retries:
                 raise

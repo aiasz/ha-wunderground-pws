@@ -25,7 +25,7 @@ Linuxon/WSL-ben elég: `pip install -r requirements_test.txt && pytest`.
 | Fájl | Szerep |
 |---|---|
 | `coordinator.py` | megfigyelés + előrejelzés frissítése, demo mód (kulcskeresés), adatellenőrzés |
-| `providers/` | egy szolgáltató = egy adapter: `wunderground.py`, `open_meteo.py`, `metno.py`, közös `_http.py`, `base.py` (hibatípusok) |
+| `providers/` | egy szolgáltató = egy adapter: `wunderground.py`, `open_meteo.py`, `metno.py`, `wu_citypage.py` (kulcs nélküli megfigyelés-fallback, F09), közös `_http.py`, `breaker.py`, `base.py` (hibatípusok) |
 | `calculations.py`, `conditions.py` | **tiszta** függvények (átváltás, származtatott értékek, állapot-leképezések) – Home Assistant nélkül tesztelhetők |
 | `models.py` | a providerek közös, normalizált adatalakja |
 | `settings.py` | tényleges beállítás = opció › adat (B06) |

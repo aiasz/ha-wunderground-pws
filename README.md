@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integráció
 
-**Készítő: Aiasz · Verzió: 1.6.0 · [English README](README.en.md)**
+**Készítő: Aiasz · Verzió: 1.6.1 · [English README](README.en.md)**
 
 Bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait
 megjeleníti a Home Assistantban – az **official WU API**-n keresztül, metrikus egységekkel – és mellé
@@ -28,6 +28,9 @@ tartalék-lánccal. Magyar és angol nyelven használható.
 - **Stabil működés**: a hibás előrejelzés nem érinti a mérések frissítését; az utolsó jó előrejelzés megmarad;
   az előrejelzés és a város-geokódolás gyorsítótárazott (kevesebb API-hívás).
 - **Demo mód** (opcionális API kulcs): lásd lent.
+- **Megfigyelés-tartalék kulcs nélkül**: ha a WU API nem elérhető és be van állítva egy előrejelzési
+  város, az integráció a WU nyilvános, bejelentkezés nélküli városi oldaláról olvassa ki a legközelebbi
+  állomás mérését – átlátszóan jelölve (`observation_source`, `fallback_source_station`).
 - **Beállítások újraindítás nélkül** módosíthatók (Configure).
 
 ## Telepítés
@@ -62,13 +65,32 @@ utána a Home Assistant újrahitelesítést kér. A kézzel megadott kulcsot az 
 > **Fontos:** a megosztott kulcsot a WU bármikor elutasíthatja (a 2026-10-31-i ellenőrzéskor a weboldalról kinyert kulcsot
 > már a megfigyelés végpont sem fogadta el). **Megbízható, tartós működéshez saját API kulcs kell** – a WU PWS-tulajdonosoknak
 > ingyen adja: <https://www.wunderground.com/member/api-keys>. Kulcs nélkül az előrejelzést a MET Norway / Open-Meteo is tudja
-> adni (forrás: `metno` vagy `openmeteo`), de az állomás mérései kulcs nélkül nem érhetők el.
+> adni (forrás: `metno` vagy `openmeteo`); ha emellett egy előrejelzési **város** is be van állítva, a megfigyelés is
+> működik kulcs nélkül – a WU nyilvános városi oldaláról, a WU által kiválasztott legközelebbi állomás adatával
+> (lásd lent: „Megfigyelés-tartalék").
+
+### Megfigyelés-tartalék kulcs nélkül (API kulcs és demo mód nélkül is)
+Ha a WU API átmenetileg vagy tartósan nem elérhető (nincs kulcs, a demo mód kulcsa elutasítva), **és** be van
+állítva egy **előrejelzési város**, az integráció a `wunderground.com/weather/hu/{város}` nyilvános,
+bejelentkezés nélküli oldaláról olvassa ki az aktuális hőmérsékletet, páratartalmat, légnyomást, szelet,
+harmatpontot és csapadékot – ez egy valódi, a szerver által renderelt oldal (nem a `/dashboard/pws/{állomás}`
+oldal, amely csak JavaScript-tel töltődik fel, és amelyet ezért az integráció nem tud használni).
+
+**Fontos korlátok, amiket érdemes tudni:**
+- Ez a WU saját választása szerinti **legközelebbi** állomás az adott városhoz – **nem feltétlenül** a
+  beállított saját állomásod. Kaposvárnál ez jelenleg például `IKAPOS10`, nem `IKAPOS27`. A ténylegesen
+  használt forrás mindig látszik az `observation_source` (`wunderground_api` / `wu_citypage`) és a
+  `fallback_source_station` attribútumban/szenzorban – soha nem keveredik össze a sajáttal.
+- Nem hivatalos, nem dokumentált oldalszerkezetre épül; ha a WU átalakítja az oldalt, ez a forrás
+  átmenetileg leállhat (az integráció ekkor a szokásos hibakezeléssel jelez, nem omlik össze).
+- Néhány adat (széllökés, UV, napsugárzás, pontos szélfok) ezen az oldalon nem szerepel.
 
 ## Adatforrások
 
 | Adat | Forrás | Kulcs |
 |---|---|---|
 | Aktuális mérés (PWS) | Weather Underground `v2/pws/observations/current` | igen |
+| Aktuális mérés (tartalék, legközelebbi állomás) | WU nyilvános városi oldal (`weather/hu/…`), nem hivatalos | nem |
 | Előrejelzés | WU `v3/wx/forecast/daily/5day` (tartalék: `7day`) | igen |
 | Előrejelzés | MET Norway Locationforecast 2.0 (CC BY 4.0) | nem |
 | Előrejelzés, geokódolás | Open-Meteo (CC BY 4.0) | nem |
