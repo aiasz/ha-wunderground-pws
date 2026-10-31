@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integration
 
-**Author: Aiasz · Version 1.6.0 · [Magyar README](README.md)**
+**Author: Aiasz · Version 1.6.1 · [Magyar README](README.md)**
 
 Shows the data of any [Weather Underground](https://www.wunderground.com/) personal weather station (PWS)
 in Home Assistant through the **official WU API**, in metric units, and adds a **multi-provider forecast**
@@ -25,6 +25,9 @@ in Home Assistant through the **official WU API**, in metric units, and adds a *
 - **Resilient**: a failing forecast never blocks the measurements; the last good forecast is kept; the forecast
   and the city geocoding are cached (fewer API calls).
 - **Demo mode** (optional API key): see below.
+- **No-key observation fallback**: if the WU API is unavailable and a forecast city is set, the
+  integration reads the nearest station's data from WU's public location page instead -
+  transparently marked (`observation_source`, `fallback_source_station`).
 
 ## Installation
 
@@ -54,13 +57,30 @@ asks you to re-authenticate. A key you typed yourself is never replaced automati
 > **Important:** the shared key can be refused by WU at any time (on 2026-10-31 the key extracted from the website
 > was already rejected by the observation endpoint). **For reliable, long-term use get your own API key** – WU gives it
 > free to PWS owners: <https://www.wunderground.com/member/api-keys>. Without a key the forecast can still come from
-> MET Norway / Open-Meteo (`metno` / `openmeteo` source), but the station's measurements need a key.
+> MET Norway / Open-Meteo (`metno` / `openmeteo` source); if a forecast **city** is also set, observations work
+> without a key too - from WU's own public location page (see "No-key observation fallback" below).
+
+### No-key observation fallback (works without an API key or demo mode)
+When the WU API is unavailable (no key, demo-mode key rejected) **and** a forecast **city** is set, the
+integration reads current conditions (temperature, humidity, pressure, wind, dew point, precipitation) from
+`wunderground.com/weather/hu/{city}` - a genuinely server-rendered public page (unlike `/dashboard/pws/{id}`,
+which only fills in after JavaScript runs and therefore cannot be used here).
+
+**Known limits, worth knowing:**
+- This is WU's own choice of the *nearest* station for that city - **not necessarily** your own configured
+  station. For Kaposvár it is currently `IKAPOS10`, not `IKAPOS27`. The actual source is always visible via the
+  `observation_source` (`wunderground_api` / `wu_citypage`) and `fallback_source_station` attribute/sensor - it
+  is never silently merged with your own station's identity.
+- It scrapes an undocumented, unofficial page; if WU redesigns it this source can stop working (the integration
+  degrades gracefully when that happens, it does not crash).
+- A few values (wind gust, UV, solar radiation, exact wind degrees) are not on this page.
 
 ## Data sources
 
 | Data | Source | Key |
 |---|---|---|
 | Current measurements | Weather Underground `v2/pws/observations/current` | yes |
+| Current measurements (fallback, nearest station) | WU public location page (`weather/hu/…`), unofficial | no |
 | Forecast | WU `v3/wx/forecast/daily/5day` (fallback: `7day`) | yes |
 | Forecast | MET Norway Locationforecast 2.0 (CC BY 4.0) | no |
 | Forecast, geocoding | Open-Meteo (CC BY 4.0) | no |

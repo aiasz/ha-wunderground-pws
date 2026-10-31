@@ -116,6 +116,7 @@ def _parse_obs_time(value: Any) -> datetime | None:
 def parse_observation(obs: dict[str, Any]) -> dict[str, Any]:
     """Convert a raw WU observation to metric units and add derived values."""
     out: dict[str, Any] = {
+        "observation_source": "wunderground_api",
         "station_id": obs.get("stationID"),
         "obs_time_utc": _parse_obs_time(obs.get("obsTimeUtc")),
         "obs_time_local": obs.get("obsTimeLocal"),

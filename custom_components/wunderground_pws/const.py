@@ -115,6 +115,8 @@ ATTR_ELEVATION_M = "elevation_m"
 ATTR_CONDITION = "condition"
 ATTR_OBS_AGE_MIN = "observation_age_min"
 ATTR_STATION_ONLINE = "station_online"
+ATTR_OBSERVATION_SOURCE = "observation_source"  # "wunderground_api" | "wu_citypage"
+ATTR_SOURCE_STATION_ID = "source_station_id"  # set only when observation_source is a fallback
 ATTR_TEMP_MAX_TODAY = "temperature_max_today"
 ATTR_TEMP_MIN_TODAY = "temperature_min_today"
 ATTR_GUST_MAX_TODAY = "wind_gust_max_today"
@@ -203,6 +205,14 @@ CLEARNESS_PARTLY = 0.35  # >= -> partlycloudy, below -> cloudy
 
 # --- Attribution --------------------------------------------------------------------
 ATTRIBUTION_WU = "Weather data provided by Weather Underground"
+ATTRIBUTION_WU_CITYPAGE = (
+    "Weather data from a nearby Weather Underground station (unofficial public page, no API key)"
+)
+
+# Observation sources, used as enum states for the diagnostic sensor.
+OBSERVATION_SOURCE_WU_API = "wunderground_api"
+OBSERVATION_SOURCE_WU_CITYPAGE = "wu_citypage"
+OBSERVATION_SOURCES = [OBSERVATION_SOURCE_WU_API, OBSERVATION_SOURCE_WU_CITYPAGE]
 ATTRIBUTION_FORECAST = {
     FORECAST_SOURCE_WUNDERGROUND: "Forecast: Weather Underground / The Weather Company",
     FORECAST_SOURCE_METNO: "Forecast: MET Norway (CC BY 4.0)",

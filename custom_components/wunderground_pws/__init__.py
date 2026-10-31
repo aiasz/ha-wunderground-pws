@@ -86,6 +86,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: WundergroundConfigEntry)
     forecast = ForecastCoordinator(hass, entry, coordinator, state_store, user_agent)
     await forecast.async_load_persisted()
     coordinator.forecast = forecast
+    # Night-time (and no-solar-sensor fallback, F09) condition comes from the
+    # forecast; recompute it whenever the forecast coordinator's OWN data has
+    # actually been updated (a plain call from inside the forecast's update
+    # would still see the previous forecast - the base coordinator class only
+    # assigns the new data after _async_update_data returns).
+    entry.async_on_unload(forecast.async_add_listener(coordinator.async_recompute_condition))
     await forecast.async_refresh_if_due()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

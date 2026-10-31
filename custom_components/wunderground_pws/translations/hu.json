@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Wunderground PWS beállítása",
-        "description": "Add meg a Weather Underground állomás azonosítóját (pl. IKAPOS27). Az API kulcs opcionális: ha üresen hagyod, az integráció megpróbálja automatikusan beszerezni (demo mód). Az előrejelzési város megadásával a HA időjárás kártyán 7 napos előrejelzés jelenik meg.",
+        "description": "Add meg a Weather Underground állomás azonosítóját (pl. IKAPOS27). Az API kulcs opcionális: ha üresen hagyod, az integráció megpróbálja automatikusan beszerezni (demo mód). Az előrejelzési város megadásával a HA időjárás kártyán 7 napos előrejelzés jelenik meg, és az integráció erre a városra tud átváltani egy nyilvános, kulcs nélküli Weather Underground oldalra is, ha az állomás saját API-ja nem elérhető.",
         "data": {
           "station_id": "Állomás azonosító (pl. IKAPOS27)",
           "api_key": "API kulcs (üres = automatikus keresés)",
           "scan_interval": "Frissítési időköz (perc)",
-          "city": "Előrejelzési város (pl. Kaposvár) — opcionális",
+          "city": "Előrejelzési / tartalék-forrás város (pl. Kaposvár) — opcionális",
           "forecast_source": "Előrejelzés forrása"
         }
       },
@@ -47,7 +47,7 @@
         "data": {
           "api_key": "API kulcs (üres = automatikus keresés)",
           "scan_interval": "Frissítési időköz (perc)",
-          "city": "Előrejelzési város (pl. Kaposvár) — opcionális",
+          "city": "Előrejelzési / tartalék-forrás város (pl. Kaposvár) — opcionális",
           "forecast_source": "Előrejelzés forrása",
           "openmeteo_model": "Open-Meteo időjárási modell"
         }
@@ -202,6 +202,16 @@
       },
       "forecast_mae_openmeteo": {
         "name": "Előrejelzés hibája: Open-Meteo"
+      },
+      "observation_source": {
+        "name": "Megfigyelés forrása",
+        "state": {
+          "wunderground_api": "Weather Underground API",
+          "wu_citypage": "Weather Underground (nyilvános oldal, kulcs nélkül)"
+        }
+      },
+      "source_station_id": {
+        "name": "Tartalék forrás állomása"
       }
     },
     "binary_sensor": {

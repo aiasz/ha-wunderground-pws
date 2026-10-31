@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Set up Wunderground PWS",
-        "description": "Enter the Weather Underground station ID (e.g. IKAPOS27). The API key is optional: if you leave it empty, the integration tries to obtain one automatically (demo mode). Entering a forecast city shows a 7-day forecast on the weather card.",
+        "description": "Enter the Weather Underground station ID (e.g. IKAPOS27). The API key is optional: if you leave it empty, the integration tries to obtain one automatically (demo mode). Entering a forecast city shows a 7-day forecast on the weather card, and also lets the integration fall back to a public, no-key Weather Underground page for that city if the station's own API is ever unavailable.",
         "data": {
           "station_id": "Station ID (e.g. IKAPOS27)",
           "api_key": "API key (empty = automatic discovery)",
           "scan_interval": "Update interval (minutes)",
-          "city": "Forecast city (e.g. Kaposvár) - optional",
+          "city": "Forecast / fallback city (e.g. Kaposvár) - optional",
           "forecast_source": "Forecast source"
         }
       },
@@ -47,7 +47,7 @@
         "data": {
           "api_key": "API key (empty = automatic discovery)",
           "scan_interval": "Update interval (minutes)",
-          "city": "Forecast city (e.g. Kaposvár) - optional",
+          "city": "Forecast / fallback city (e.g. Kaposvár) - optional",
           "forecast_source": "Forecast source",
           "openmeteo_model": "Open-Meteo weather model"
         }
@@ -202,6 +202,16 @@
       },
       "forecast_mae_openmeteo": {
         "name": "Forecast error: Open-Meteo"
+      },
+      "observation_source": {
+        "name": "Observation source",
+        "state": {
+          "wunderground_api": "Weather Underground API",
+          "wu_citypage": "Weather Underground (public page, no key)"
+        }
+      },
+      "source_station_id": {
+        "name": "Fallback source station"
       }
     },
     "binary_sensor": {

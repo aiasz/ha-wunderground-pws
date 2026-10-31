@@ -38,8 +38,10 @@ from .const import (
     ATTR_LAT,
     ATTR_LOCATION_NAME,
     ATTR_LON,
+    ATTR_OBSERVATION_SOURCE,
     ATTR_PRESSURE,
     ATTR_SOLAR_RADIATION,
+    ATTR_SOURCE_STATION_ID,
     ATTR_STATION_ID,
     ATTR_TEMPERATURE,
     ATTR_UV_INDEX,
@@ -173,6 +175,8 @@ class WundergroundPWSWeather(
         f = self._forecast
         return {
             "station_id": self._value(ATTR_STATION_ID),
+            "observation_source": self._value(ATTR_OBSERVATION_SOURCE),
+            "fallback_source_station": self._value(ATTR_SOURCE_STATION_ID),
             "location": self._value(ATTR_LOCATION_NAME),
             "country": self._value(ATTR_COUNTRY),
             "lat": self._value(ATTR_LAT),

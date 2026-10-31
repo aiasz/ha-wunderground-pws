@@ -238,8 +238,6 @@ class ForecastCoordinator(DataUpdateCoordinator[ForecastBundle]):
         self.fetched_at = now
         bundle["fetched_at"] = now.isoformat()
         self._bundle_store.async_delay_save(lambda: bundle, 30)
-        # The "current condition" at night comes from the forecast: refresh it now.
-        self.observation.async_recompute_condition()
         return bundle
 
     def _apply_observed_extremes(self, bundle: ForecastBundle) -> None:
