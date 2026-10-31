@@ -146,3 +146,29 @@ async def test_refresh_recovers_once_the_real_api_starts_working_again(
     await hass.async_block_till_done()
     assert _state(hass, "sensor", f"{STATION}_observation_source").state == "wunderground_api"
     assert len(calls_to(aioclient_mock, "dashboard/pws")) == 0  # no more discovery attempts needed
+
+
+async def test_fallback_fills_uv_from_forecast_and_coords_from_geocoded_city(
+    hass, aioclient_mock, freezer
+) -> None:
+    """F09 data-completeness: UV (from today's forecast) and lat/lon (from the
+    geocoded city) are filled in even though the city page itself has neither."""
+    freezer.move_to(NOW)
+    mock_apis(aioclient_mock)
+    aioclient_mock.get(WU_DASHBOARD_URL.format(station_id=STATION), status=404)
+    aioclient_mock.get(wu_citypage.page_url("Kaposvár"), text=CITYPAGE_HTML)
+    entry = make_entry(data={"api_key": "", "api_key_source": "legacy", "city": "Kaposvár"})
+    await _setup(hass, entry)
+
+    weather = _state(hass, "weather", f"{STATION}_weather")
+    assert weather.attributes["lat"] is not None
+    assert weather.attributes["lon"] is not None
+    uv_sensor = _state(hass, "sensor", f"{STATION}_uv_index")
+    assert uv_sensor.state != "unknown"
+    assert uv_sensor.attributes["estimated_from_forecast"] is True
+
+    heat_index_sensor = _state(hass, "sensor", f"{STATION}_heat_index")
+    # Mild temperature in the fixture (9 degC): below the heat-index formula's
+    # validity threshold, so it correctly stays unavailable rather than being
+    # computed from an out-of-range formula.
+    assert heat_index_sensor.state == "unknown"

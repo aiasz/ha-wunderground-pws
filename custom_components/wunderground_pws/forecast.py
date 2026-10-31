@@ -153,6 +153,11 @@ class ForecastCoordinator(DataUpdateCoordinator[ForecastBundle]):
                 return point.get("condition")
         return None
 
+    @property
+    def coords(self) -> tuple[float, float] | None:
+        """The coordinates the current forecast was fetched for (other coordinators reuse these)."""
+        return self._coords
+
     def current_hour_condition(self) -> str | None:
         """Condition of the hour we are in (day/night aware), if hourly data exists."""
         for point in self.hourly[:2]:

@@ -18,11 +18,13 @@ from homeassistant.config_entries import ConfigEntry
 from .const import (
     CONF_API_KEY,
     CONF_CITY,
+    CONF_ENABLE_AIR_QUALITY,
     CONF_FORECAST_SOURCE,
     CONF_OPENMETEO_MODEL,
     CONF_SCAN_INTERVAL,
     CONF_STATION_ID,
     DEFAULT_CITY,
+    DEFAULT_ENABLE_AIR_QUALITY,
     DEFAULT_FORECAST_SOURCE,
     DEFAULT_OPENMETEO_MODEL,
     DEFAULT_SCAN_INTERVAL,
@@ -51,6 +53,7 @@ def settings_signature(entry: ConfigEntry) -> tuple[Any, ...]:
         CONF_CITY: DEFAULT_CITY,
         CONF_FORECAST_SOURCE: DEFAULT_FORECAST_SOURCE,
         CONF_OPENMETEO_MODEL: DEFAULT_OPENMETEO_MODEL,
+        CONF_ENABLE_AIR_QUALITY: DEFAULT_ENABLE_AIR_QUALITY,
     }
     # With the defaults applied, "not set yet" and "set to the default" compare equal,
     # so saving the options without a real change does not reload the integration.

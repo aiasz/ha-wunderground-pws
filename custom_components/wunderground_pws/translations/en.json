@@ -32,6 +32,7 @@
       "invalid_auth": "The API key was rejected by Weather Underground.",
       "unknown_station": "The station was not found or has not reported recent data. Check the station ID.",
       "api_key_required": "The API key cannot be empty.",
+      "station_id_required": "The station ID cannot be empty.",
       "discovery_failed": "The automatic API key discovery did not find a key. Enter one manually."
     },
     "abort": {

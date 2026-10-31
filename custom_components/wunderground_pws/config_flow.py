@@ -50,6 +50,7 @@ from .const import (
     CONF_STATION_ID,
     CONFIG_ENTRY_VERSION,
     DEFAULT_CITY,
+    DEFAULT_ENABLE_AIR_QUALITY,
     DEFAULT_FORECAST_SOURCE,
     DEFAULT_OPENMETEO_MODEL,
     DEFAULT_SCAN_INTERVAL,
@@ -130,6 +131,7 @@ class WundergroundPWSConfigFlow(ConfigFlow, domain=DOMAIN):
         self._scan_interval: int = DEFAULT_SCAN_INTERVAL
         self._city: str = DEFAULT_CITY
         self._forecast_source: str = DEFAULT_FORECAST_SOURCE
+        self._enable_air_quality: bool = DEFAULT_ENABLE_AIR_QUALITY
         self._discovered_key: str | None = None
 
     # --- Step 1: station + optional key ------------------------------------
@@ -145,16 +147,21 @@ class WundergroundPWSConfigFlow(ConfigFlow, domain=DOMAIN):
             self._forecast_source = user_input.get(CONF_FORECAST_SOURCE, DEFAULT_FORECAST_SOURCE)
             api_key = (user_input.get(CONF_API_KEY) or "").strip()
 
-            await self.async_set_unique_id(self._station_id)
-            self._abort_if_unique_id_configured()
+            if not self._station_id:
+                # A blank/whitespace-only station id used to be silently accepted and
+                # sent the flow into a dead-end demo-mode discovery for station "".
+                errors[CONF_STATION_ID] = "station_id_required"
+            else:
+                await self.async_set_unique_id(self._station_id)
+                self._abort_if_unique_id_configured()
 
-            if not api_key:
-                return await self.async_step_discover()
+                if not api_key:
+                    return await self.async_step_discover()
 
-            error = await async_validate_credentials(self.hass, self._station_id, api_key)
-            if error is None:
-                return self._create_entry(api_key, API_KEY_SOURCE_MANUAL)
-            errors["base"] = error
+                error = await async_validate_credentials(self.hass, self._station_id, api_key)
+                if error is None:
+                    return self._create_entry(api_key, API_KEY_SOURCE_MANUAL)
+                errors["base"] = error
 
         schema = vol.Schema(
             {
@@ -184,7 +191,16 @@ class WundergroundPWSConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_discover(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Discover a key and let the user confirm or replace it."""
+        """Discover a key and let the user confirm or replace it.
+
+        If the discovered/entered key fails validation (the shared demo key is
+        frequently rejected by WU - see CHANGELOG 1.6.1) but a forecast city is
+        configured, the entry is created anyway instead of hard-blocking setup:
+        the coordinator keeps retrying discovery on its own schedule (S12) and
+        falls back to the no-key public-page source for that city (F09) until a
+        working key appears. Without a city there is no fallback, so validation
+        still has to pass.
+        """
         errors: dict[str, str] = {}
 
         if user_input is None:
@@ -192,16 +208,28 @@ class WundergroundPWSConfigFlow(ConfigFlow, domain=DOMAIN):
             self._discovered_key = await wu.discover_api_key(self._station_id, session)
         else:
             api_key = (user_input.get(CONF_API_KEY) or "").strip()
-            if not api_key:
+            if not api_key and not self._city:
                 errors[CONF_API_KEY] = "api_key_required"
+            elif not api_key:
+                # No key at all, but the city fallback can carry the station
+                # until a key is found - store nothing yet, let S12 try later.
+                return self._create_entry("", API_KEY_SOURCE_AUTO)
             else:
                 error = await async_validate_credentials(self.hass, self._station_id, api_key)
+                source = (
+                    API_KEY_SOURCE_AUTO
+                    if api_key == self._discovered_key
+                    else API_KEY_SOURCE_MANUAL
+                )
                 if error is None:
-                    source = (
-                        API_KEY_SOURCE_AUTO
-                        if api_key == self._discovered_key
-                        else API_KEY_SOURCE_MANUAL
-                    )
+                    return self._create_entry(api_key, source)
+                if self._city and source == API_KEY_SOURCE_AUTO:
+                    # An unvalidated *auto-discovered* key is safe to store: the
+                    # coordinator revalidates every key before using it (S12a) and
+                    # will fall back to the city source if it keeps failing (F09).
+                    # A *manually typed* key failing validation is always reported
+                    # back to the user instead (it is their explicit, deliberate
+                    # input - S12c never silently accepts it unverified).
                     return self._create_entry(api_key, source)
                 errors["base"] = error
 
@@ -306,21 +334,25 @@ class WundergroundPWSOptionsFlow(OptionsFlow):
 
         if user_input is not None:
             key_in = (user_input.get(CONF_API_KEY) or "").strip()
+            new_city = (user_input.get(CONF_CITY) or "").strip()
             final_key, final_source = current_key, current_source
 
             if key_in != current_key or not key_in:
                 if key_in:
                     final_key, final_source = key_in, API_KEY_SOURCE_MANUAL
                 else:
-                    # Blank = demo mode: discover and validate a key right now.
+                    # Blank = demo mode: discover a key right now (best effort).
                     session = async_get_clientsession(self.hass)
                     final_key = await wu.discover_api_key(station_id, session) or ""
                     final_source = API_KEY_SOURCE_AUTO
-                    if not final_key:
+                    if not final_key and not new_city:
                         errors[CONF_API_KEY] = "discovery_failed"
-                if not errors:
+                if not errors and final_key:
                     error = await async_validate_credentials(self.hass, station_id, final_key)
-                    if error:
+                    # A failed *auto* key is still saved when a city fallback exists
+                    # (F09/S12 retry at runtime); a failed *manual* key is always
+                    # reported back (S12c - never silently accept it unverified).
+                    if error and not (new_city and final_source == API_KEY_SOURCE_AUTO):
                         errors["base"] = error
 
             if not errors:

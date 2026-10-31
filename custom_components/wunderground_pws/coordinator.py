@@ -73,6 +73,7 @@ from .const import (
     ATTR_TEMP_MAX_TODAY,
     ATTR_TEMP_MIN_TODAY,
     ATTR_TEMPERATURE,
+    ATTR_UV_ESTIMATED,
     ATTR_UV_INDEX,
     ATTR_WET_BULB,
     ATTR_WIND_BEARING,
@@ -98,7 +99,7 @@ from .const import (
     OBS_STALE_FACTOR,
     PLAUSIBLE_RANGES,
 )
-from .providers import wu_citypage
+from .providers import open_meteo, wu_citypage
 from .providers import wunderground as wu
 from .providers.base import (
     ProviderAuthError,
@@ -110,6 +111,7 @@ from .settings import get_setting, settings_signature
 from .state import StateStore
 
 if TYPE_CHECKING:
+    from .air_quality_coordinator import AirQualityCoordinator
     from .forecast import ForecastCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -148,6 +150,8 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.state_store = state_store
         # Set by ``async_setup_entry`` right after construction.
         self.forecast: ForecastCoordinator | None = None
+        # Set by ``async_setup_entry`` only when the air-quality/pollen option is on (M3).
+        self.air_quality: AirQualityCoordinator | None = None
 
         # Demo-mode (key discovery) state
         self._key_attempts: int = 0
@@ -208,21 +212,38 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.state_store.async_schedule_save()
 
     @callback
-    @callback
     def async_recompute_condition(self) -> None:
-        """Re-derive the current condition.
+        """Re-derive values that depend on the forecast coordinator's own data.
 
         Registered as a listener on the forecast coordinator (see
         :mod:`.__init__`), so this runs *after* ``forecast.data`` has actually
         been updated by the base coordinator class - calling it eagerly from
         inside the forecast's own ``_async_update_data`` would read the
-        still-stale previous forecast.
+        still-stale previous forecast. Covers:
+
+        * the current condition (night-time / no-solar-sensor sky state, F15),
+        * the UV index estimate (F09) - only the forecast's first refresh, which
+          typically completes moments after the observation's own first
+          refresh, can supply this; without this recompute it would stay
+          "unavailable" until the next full ``scan_interval`` elapses.
         """
         if not self.data:
             return
+        changed = False
+
         condition = self._derive_condition(self.data)
         if condition != self.data.get(ATTR_CONDITION):
             self.data[ATTR_CONDITION] = condition
+            changed = True
+
+        if self.data.get(ATTR_UV_ESTIMATED) or self.data.get(ATTR_UV_INDEX) is None:
+            uv = self._forecast_uv_estimate()
+            if uv is not None and uv != self.data.get(ATTR_UV_INDEX):
+                self.data[ATTR_UV_INDEX] = uv
+                self.data[ATTR_UV_ESTIMATED] = True
+                changed = True
+
+        if changed:
             self.async_update_listeners()
 
     async def _async_fetch_wu_observation(self, session: aiohttp.ClientSession) -> dict[str, Any]:
@@ -286,6 +307,23 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.city,
             obs.get("source_station_id"),
         )
+        # The page has no coordinates of its own; reuse the city's geocoded position
+        # (F09) so the weather entity's lat/lon are not simply empty.
+        if obs.get("lat") is None:
+            coords = self.forecast.coords if self.forecast is not None else None
+            if coords is None:
+                # First-ever refresh: the forecast coordinator has not geocoded
+                # anything yet. Geocode directly here instead of leaving lat/lon
+                # empty until the next cycle - this is the only extra call, since
+                # every later refresh reuses the forecast coordinator's own coords.
+                try:
+                    coords = await open_meteo.geocode(
+                        session, self.city, self.hass.config.language.split("-")[0]
+                    )
+                except ProviderError:
+                    coords = None
+            if coords is not None:
+                obs["lat"], obs["lon"] = coords
         return obs
 
     # ------------------------------------------------------------------
@@ -368,6 +406,15 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             limit = max(OBS_MIN_STALE_MINUTES, OBS_STALE_FACTOR * self.scan_interval)
             online = age_min <= limit
 
+        uv = obs.get("uv")
+        uv_estimated = False
+        if uv is None:
+            # No measured UV (common for the city-page fallback, and possible for
+            # a PWS without a UV sensor): use today's forecast UV max instead of
+            # leaving the sensor permanently unavailable, clearly flagged as such.
+            uv = self._forecast_uv_estimate()
+            uv_estimated = uv is not None
+
         data: dict[str, Any] = {
             ATTR_STATION_ID: obs.get("station_id") or self.station_id,
             ATTR_LAST_UPDATED: obs.get("obs_time_local")
@@ -391,7 +438,8 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ATTR_PRECIPITATION: obs.get("precipitation"),
             ATTR_PRECIPITATION_RATE: obs.get("precipitation_rate"),
             ATTR_SOLAR_RADIATION: obs.get("solar_radiation"),
-            ATTR_UV_INDEX: obs.get("uv"),
+            ATTR_UV_INDEX: uv,
+            ATTR_UV_ESTIMATED: uv_estimated,
             ATTR_CLOUD_BASE: obs.get("cloud_base"),
             ATTR_ABSOLUTE_HUMIDITY: obs.get("absolute_humidity"),
             ATTR_WIND_CHILL: obs.get("wind_chill"),
@@ -416,6 +464,20 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
                 data[key] = previous.get(key)
         return data
+
+    def _forecast_uv_estimate(self) -> float | None:
+        """Today's forecast UV max, used when the observation has no measured UV (F09)."""
+        if self.forecast is None:
+            return None
+        today = dt_util.now().date()
+        for point in self.forecast.daily:
+            try:
+                start = datetime.fromisoformat(point["datetime"])
+            except (KeyError, ValueError):
+                continue
+            if dt_util.as_local(start).date() == today:
+                return point.get("uv_index")
+        return None
 
     def _derive_condition(self, data: dict[str, Any]) -> str | None:
         """Current condition from measurements + sun position + forecast (F15)."""

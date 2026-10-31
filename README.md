@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integráció
 
-**Készítő: Aiasz · Verzió: 1.6.1 · [English README](README.en.md)**
+**Készítő: Aiasz · Verzió: 1.6.2 · [English README](README.en.md)**
 
 Bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait
 megjeleníti a Home Assistantban – az **official WU API**-n keresztül, metrikus egységekkel – és mellé
@@ -83,7 +83,12 @@ oldal, amely csak JavaScript-tel töltődik fel, és amelyet ezért az integrác
   `fallback_source_station` attribútumban/szenzorban – soha nem keveredik össze a sajáttal.
 - Nem hivatalos, nem dokumentált oldalszerkezetre épül; ha a WU átalakítja az oldalt, ez a forrás
   átmenetileg leállhat (az integráció ekkor a szokásos hibakezeléssel jelez, nem omlik össze).
-- Néhány adat (széllökés, UV, napsugárzás, pontos szélfok) ezen az oldalon nem szerepel.
+- **Amit pótolunk valódi adatból:** koordináták (a város geokódolásából), szélirány fokban
+  (iránytű-szektor középértéke, ±11,25° becslés), hőérzet index (szabványos képlet), UV-index
+  (az előrejelzésből — csak ha az Open-Meteo a használt forrás, a MET Norway-nek nincs UV-adata).
+- **Amit tudatosan nem pótolunk:** széllökés, csapadék-intenzitás (pillanatnyi ráta),
+  napsugárzás — ezekre a tartalék oldalon nincs valós alapadat, a szenzor „nem elérhető" marad
+  (egy hiányzó érték jobb, mint egy kitalált szám).
 
 ## Adatforrások
 

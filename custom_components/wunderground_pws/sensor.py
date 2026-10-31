@@ -61,6 +61,7 @@ from .const import (
     ATTR_TEMP_MAX_TODAY,
     ATTR_TEMP_MIN_TODAY,
     ATTR_TEMPERATURE,
+    ATTR_UV_ESTIMATED,
     ATTR_UV_INDEX,
     ATTR_WET_BULB,
     ATTR_WIND_BEARING,
@@ -372,6 +373,8 @@ class WundergroundPWSSensor(WundergroundPWSEntity, SensorEntity):
         }
         if self.entity_description.data_key == ATTR_WIND_BEARING:
             attrs["compass"] = data.get(ATTR_WIND_COMPASS)
+        if self.entity_description.data_key == ATTR_UV_INDEX:
+            attrs["estimated_from_forecast"] = data.get(ATTR_UV_ESTIMATED, False)
         return attrs
 
 

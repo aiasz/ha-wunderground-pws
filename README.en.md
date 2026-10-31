@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integration
 
-**Author: Aiasz · Version 1.6.1 · [Magyar README](README.md)**
+**Author: Aiasz · Version 1.6.2 · [Magyar README](README.md)**
 
 Shows the data of any [Weather Underground](https://www.wunderground.com/) personal weather station (PWS)
 in Home Assistant through the **official WU API**, in metric units, and adds a **multi-provider forecast**
@@ -73,7 +73,12 @@ which only fills in after JavaScript runs and therefore cannot be used here).
   is never silently merged with your own station's identity.
 - It scrapes an undocumented, unofficial page; if WU redesigns it this source can stop working (the integration
   degrades gracefully when that happens, it does not crash).
-- A few values (wind gust, UV, solar radiation, exact wind degrees) are not on this page.
+- **Filled in from real data:** coordinates (from the city's geocoding), wind bearing in degrees
+  (compass-sector centre, a disclosed +-11.25 deg estimate), heat index (standard formula), UV
+  index (from the forecast - only when Open-Meteo is the active source; MET Norway has no UV data).
+- **Deliberately not filled in:** wind gust, precipitation rate, solar radiation - there is no
+  real underlying data for these on the fallback page, so the sensor stays "unavailable" (a
+  missing value is better than a fabricated number).
 
 ## Data sources
 

@@ -44,10 +44,10 @@ def test_parse_observation_matches_the_real_live_page() -> None:
     assert obs["obs_time_utc"].isoformat() == "2026-10-31T17:46:18+00:00"  # 18:46 CET -> UTC
 
 
-def test_parse_observation_fills_hungarian_compass_and_slug_from_the_letter() -> None:
-    """No exact degrees on the page: only the compass-letter translation, not fabricated precision."""
+def test_parse_observation_fills_hungarian_compass_and_degrees_from_the_letter() -> None:
+    """No exact degrees on the page: use the sector centre (disclosed +-11.25 deg estimate)."""
     obs = wu_citypage.parse_observation(FIXTURE_HTML)
-    assert obs["wind_dir_deg"] is None
+    assert obs["wind_dir_deg"] == 0.0  # "N" sector centre
     assert obs["wind_dir_compass_hu"] == "É"
     assert obs["wind_dir_slug"] == "n"
 

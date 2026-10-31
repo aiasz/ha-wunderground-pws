@@ -10,6 +10,7 @@ from custom_components.wunderground_pws.calculations import (
     calculate_absolute_humidity,
     calculate_cloud_base,
     calculate_feels_like,
+    calculate_heat_index,
     calculate_wet_bulb,
     calculate_wind_chill,
     clear_sky_irradiance,
@@ -128,3 +129,18 @@ def test_is_plausible() -> None:
     assert not is_plausible("pressure", 300.0)
     assert is_plausible("temperature", None)  # None = "no value", not an error
     assert is_plausible("unknown_key", 1e9)
+
+
+def test_calculate_heat_index_nws_regression() -> None:
+    # NWS example: 90 degF / 70% RH -> ~106 degF -> ~41.1 degC.
+    assert calculate_heat_index(32.2, 70.0) == pytest.approx(41.1, abs=0.3)
+    assert calculate_heat_index(20.0, 50.0) is None  # below the validity threshold
+    assert calculate_heat_index(None, 50.0) is None
+    assert calculate_heat_index(30.0, None) is None
+
+
+def test_feels_like_computes_heat_index_when_not_supplied() -> None:
+    """F09: sources without their own heat index (e.g. the city-page fallback) still work."""
+    with_formula = calculate_feels_like(32.2, None, 5.0, rel_humidity=70.0)
+    assert with_formula == pytest.approx(41.1, abs=0.3)
+    assert calculate_feels_like(32.2, 99.0, 5.0, rel_humidity=70.0) == 99.0  # supplied value wins

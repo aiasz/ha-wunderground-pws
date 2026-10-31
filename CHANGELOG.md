@@ -6,6 +6,42 @@ Minden lényeges változás ebben a fájlban szerepel. A formátum a
 
 A `B##` / `F##` / `M#` / `S#` azonosítók a fejlesztési terv (`PLAN.md`) tételeire hivatkoznak.
 
+## [1.6.2] – 2026-10-31
+
+**Sürgős javítás**, élő Home Assistant tesztpéldányban megerősítve: a beállítás saját API kulcs
+nélkül teljesen elakadt, és a kulcs nélküli tartalék forrásnál (1.6.1) több adat is hiányzott.
+
+### Javítva (kritikus)
+- **A beállítás nem fejeződött be API kulcs nélkül, még beállított tartalék-várossal sem**
+  (`P0`): a beállítási folyamat minden esetben megkövetelte egy *valóban működő* WU API kulcs
+  sikeres ellenőrzését, mielőtt elmentette a bejegyzést — függetlenül attól, hogy be volt-e
+  állítva előrejelzési város a tartalékhoz (F09, 1.6.1). Mivel a demo módban kinyert kulcsot a
+  WU ma elutasítja, a beállítás **sosem tudott sikerrel lezárulni** saját kulcs nélkül. Mostantól:
+  ha az automatikusan talált/megadott kulcs ellenőrzése sikertelen, **de van beállított város**,
+  a bejegyzés mégis létrejön — a koordinátor saját ütemezése szerint újra próbálja a kulcsot
+  (S12), eközben a városi tartalékra támaszkodik (F09). Ha nincs kulcs és nincs város sem, a
+  beállítás továbbra is hibát jelez — ekkor tényleg nincs honnan adatot szerezni.
+  Élőben, valódi Home Assistant példányban megerősítve.
+- **Üres állomásazonosítóval is el lehetett menteni a beállítást**, ami egy zsákutcás
+  folyamatba vitte a felhasználót hibaüzenet nélkül. Mostantól az üres/csak szóközt tartalmazó
+  azonosító egyértelmű hibát ad.
+
+### Javítva (adathiány a kulcs nélküli tartalék forrásnál, 1.6.1 óta)
+Élő teszt alapján a `wu_citypage` tartalék forrás több mezőt is kihagyott, amit a valódi WU API
+megadna. Ahol **becsületesen pótolható volt valódi adatból**, pótoltuk:
+- **Koordináták (lat/lon):** a már amúgy is geokódolt város helyéből.
+- **Szélirány fokban:** a 22,5°-os iránytű-szektor középértékéből (jelölve: ±11,25° becslés).
+- **Hőérzet index (heat_index):** új, szabványos NWS Rothfusz-képlet — ezentúl bármelyik
+  forrásnál számolódik, ha a forrás maga nem adja meg (a WU API-nál is, tartalék funkcióként).
+- **UV-index:** a már lekért előrejelzésből (ha az Open-Meteo a használt forrás — lásd lent).
+
+**Amit tudatosan nem pótoltunk kitalált adattal** (a megfelelő szenzor „nem elérhető" marad):
+széllökés, csapadék-intenzitás (pillanatnyi ráta), napsugárzás — ezekre a tartalék oldalon
+nincs semmilyen valós alapadat. **Ismert korlát:** az UV-pótlás csak akkor működik, ha az
+Open-Meteo a ténylegesen használt előrejelzés-forrás; ha a MET Norway válaszol előbb (ennek
+API-ja nem ad UV-adatot), az UV-index is „nem elérhető" marad. Ez szándékos: egy hiányzó
+érték jobb, mint egy kitalált szám.
+
 ## [1.6.1] – 2026-10-31
 
 Kulcs nélküli megfigyelés-tartalék (F09): nyilvános Weather Underground városi oldal.

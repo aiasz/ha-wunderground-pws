@@ -13,7 +13,13 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
-from .const import PLAUSIBLE_RANGES
+from .const import (
+    EUROPEAN_AQI_BANDS,
+    PLAUSIBLE_RANGES,
+    POLLEN_BANDS,
+    US_AQI_BANDS,
+    UV_BANDS,
+)
 
 # --- Unit conversion ------------------------------------------------------------
 
@@ -167,15 +173,46 @@ def calculate_wind_chill(temp_c: float | None, wind_kmh: float | None) -> float 
 _HEAT_INDEX_MIN_C = 26.7
 
 
+def calculate_heat_index(temp_c: float | None, rel_humidity: float | None) -> float | None:
+    """Heat index in degC (NWS Rothfusz regression, in Fahrenheit internally).
+
+    Only defined above ~26.7 degC (80 degF); ``None`` otherwise. Used as a
+    fallback whenever a provider does not supply its own measured heat index
+    (e.g. the no-key city-page observation source, F09) - without this, that
+    sensor would always read "unavailable" above the threshold even though it
+    is computable from temperature and humidity alone.
+    """
+    if temp_c is None or rel_humidity is None or temp_c < _HEAT_INDEX_MIN_C:
+        return None
+    t = temp_c * 9.0 / 5.0 + 32.0  # degC -> degF (the regression is defined in Fahrenheit)
+    rh = rel_humidity
+    hi = (
+        -42.379
+        + 2.04901523 * t
+        + 10.14333127 * rh
+        - 0.22475541 * t * rh
+        - 0.00683783 * t * t
+        - 0.05481717 * rh * rh
+        + 0.00122874 * t * t * rh
+        + 0.00085282 * t * rh * rh
+        - 0.00000199 * t * t * rh * rh
+    )
+    return round((hi - 32.0) * 5.0 / 9.0, 1)  # degF -> degC
+
+
 def calculate_feels_like(
     temp_c: float | None,
     heat_index_c: float | None,
     wind_kmh: float | None,
+    rel_humidity: float | None = None,
 ) -> float | None:
     """Unified "feels like" temperature (fixes B11).
 
     * cold and windy  -> wind chill,
-    * hot             -> heat index (as reported by the station network),
+    * hot             -> heat index: the value supplied by the provider if it
+      has one, otherwise computed from temperature + humidity (F09 - keeps
+      this correct for sources, like the city-page fallback, that do not
+      report their own heat index),
     * otherwise       -> the plain air temperature.
     """
     if temp_c is None:
@@ -183,8 +220,12 @@ def calculate_feels_like(
     wind_chill = calculate_wind_chill(temp_c, wind_kmh)
     if wind_chill is not None:
         return wind_chill
-    if heat_index_c is not None and temp_c >= _HEAT_INDEX_MIN_C:
-        return round(heat_index_c, 1)
+    if temp_c >= _HEAT_INDEX_MIN_C:
+        heat_index_c = (
+            heat_index_c if heat_index_c is not None else calculate_heat_index(temp_c, rel_humidity)
+        )
+        if heat_index_c is not None:
+            return round(heat_index_c, 1)
     return round(temp_c, 1)
 
 
@@ -259,6 +300,42 @@ def clear_sky_irradiance(elevation_deg: float) -> float:
 
 
 # --- Plausibility (F08) -------------------------------------------------------------------
+
+
+def _band_level(value: float | None, bands: list[tuple[float, str]]) -> str | None:
+    """First band whose upper bound is >= ``value``; ``None`` for ``None``/negative."""
+    if value is None or value < 0:
+        return None
+    for upper, level in bands:
+        if value <= upper:
+            return level
+    return bands[-1][1]  # unreachable in practice (last band is (inf, ...))
+
+
+def european_aqi_level(value: float | None) -> str | None:
+    """EEA European Air Quality Index value -> good/fair/.../extremely_poor."""
+    return _band_level(value, EUROPEAN_AQI_BANDS)
+
+
+def us_aqi_level(value: float | None) -> str | None:
+    """US EPA AQI value (0-500) -> good/moderate/.../hazardous."""
+    return _band_level(value, US_AQI_BANDS)
+
+
+def pollen_level(species_attr: str, value: float | None) -> str | None:
+    """Daily-mean pollen concentration (grains/m3) -> low/moderate/high/very_high.
+
+    Only defined for the species in ``POLLEN_BANDS`` (MeteoSwiss table); returns
+    ``None`` for species without an official scale (e.g. olive) or an unknown key,
+    rather than fabricating a threshold (PLAN.md D7).
+    """
+    bands = POLLEN_BANDS.get(species_attr)
+    return _band_level(value, bands) if bands else None
+
+
+def who_uv_level(value: float | None) -> str | None:
+    """UV index -> WHO Global Solar UV Index category (low/moderate/high/very_high/extreme)."""
+    return _band_level(value, UV_BANDS)
 
 
 def is_plausible(key: str, value: float | None) -> bool:
