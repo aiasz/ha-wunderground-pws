@@ -99,6 +99,13 @@ A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
 | `station_online` | be/ki | diagnosztika: friss-e az utolsó mérés |
 | `weather` | – | aktuális állapot + napi előrejelzés |
 
+## Kaposvár és Magyarország
+Az integráció alapértelmezései a készítő otthonára, **Kaposvárra** vannak hangolva: a beállítás az `IKAPOS27` állomást és a
+`Kaposvár` előrejelzési várost javasolja (a mezők átírhatók). A város geokódolása egyszer fut le és tartósan tárolódik;
+valós adatokkal ellenőrizve Kaposvár a (46.3667, 17.8) koordinátára oldódik fel, és az Open-Meteo (automatikus, ECMWF IFS,
+ICON-EU) valamint a MET Norway előrejelzés is hibátlanul feldolgozható rá. Más magyar városnál ugyanígy működik
+(pl. `Budapest`, `Pécs`); hazai hivatalos adat (HungaroMet) a tervezett v1.8-ban jön.
+
 ## Időjárás kártya
 
 ```yaml

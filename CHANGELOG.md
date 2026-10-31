@@ -33,6 +33,8 @@ A `B##` / `F##` / `M#` / `S#` azonosítók a fejlesztési terv (`PLAN.md`) téte
   növekvő, szórt várakozással; 3 egymás utáni hiba után a forrást 10 percre kihagyja.
 
 ### Módosítva
+- **Kaposvár (a készítő otthona) kiemelten támogatott:** a beállító űrlap az `IKAPOS27` állomást és a `Kaposvár` várost javasolja; a város geokódolása (46.3667, 17.8) valós adatokkal ellenőrizve, és minden forrás (WU, MET Norway, Open-Meteo) ezekkel a koordinátákkal kérdez.
+- A **mai előrejelzés tartománya nem lehet szűkebb**, mint amit az állomás már mért (a MET Norway csak a nap hátralévő óráit adja).
 - Az előrejelzés **saját koordinátorba** került (S1): lassú vagy hibás forrás sosem lassítja a méréseket,
   és a beállítás sem hiúsul meg miatta. A megfigyelés frissítése háttérfeladatként indítja.
 - Az éjszakai „jelenlegi állapot” az aktuális óra előrejelzett állapotából jön (ha van óránkénti adat).

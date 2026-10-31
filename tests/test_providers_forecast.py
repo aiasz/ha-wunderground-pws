@@ -86,7 +86,7 @@ def test_open_meteo_parse_daily() -> None:
 async def test_open_meteo_geocode(hass, aioclient_mock) -> None:
     aioclient_mock.get(OPEN_METEO_GEOCODING_URL, json=load_json("open_meteo_geocoding.json"))
     lat, lon = await open_meteo.geocode(async_get_clientsession(hass), "Kaposvár", "hu")
-    assert (round(lat, 3), round(lon, 3)) == (46.367, 17.783)
+    assert (round(lat, 3), round(lon, 3)) == (46.367, 17.8)
 
     aioclient_mock.clear_requests()
     aioclient_mock.get(OPEN_METEO_GEOCODING_URL, json={})

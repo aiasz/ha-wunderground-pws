@@ -241,3 +241,66 @@ async def test_circuit_breaker_stops_hammering_a_dead_source(hass, aioclient_moc
     await forecast.async_refresh_if_due(force=True)
     assert len(calls_to(aioclient_mock, OPEN_METEO_FORECAST_URL)) > before
     assert METNO_FORECAST_URL not in str(aioclient_mock.mock_calls)  # chain was open-meteo only
+
+
+# --- Kaposvár (the author's home town) --------------------------------------------------------------
+
+
+async def test_kaposvar_forecast_uses_the_geocoded_town_not_a_default(
+    hass, aioclient_mock, freezer
+) -> None:
+    """City "Kaposvár": geocoded once, every provider is asked for those coordinates."""
+    from custom_components.wunderground_pws.const import (
+        OPEN_METEO_GEOCODING_URL,
+        WU_FORECAST_URL,
+    )
+
+    freezer.move_to(NOW)
+    mock_apis(aioclient_mock, wu_forecast_status=401, metno=_metno_series())
+    entry = make_entry(data={"city": "Kaposvár", "forecast_source": "blend"})
+    await _setup(hass, entry)
+
+    geocoding = calls_to(aioclient_mock, OPEN_METEO_GEOCODING_URL)
+    assert len(geocoding) == 1
+    assert "Kaposv%C3%A1r" in str(geocoding[0][1]) or "Kaposv" in str(geocoding[0][1])
+    assert "language=en" in str(geocoding[0][1])  # Home Assistant language of the test
+    for url_part in (OPEN_METEO_FORECAST_URL, METNO_FORECAST_URL):
+        (call, *_) = calls_to(aioclient_mock, url_part)
+        assert "46.3667" in str(call[1])
+        assert "17.8" in str(call[1])
+    wu_call = calls_to(aioclient_mock, WU_FORECAST_URL.format(product="5day"))[0]
+    assert "46.3667%2C17.8000" in str(wu_call[1]) or "46.3667,17.8000" in str(wu_call[1])
+
+    weather = _state(hass, "weather", f"{STATION}_weather")
+    assert weather.attributes["forecast_city"] == "Kaposvár"
+    assert entry.runtime_data.forecast.daily  # a forecast exists for the town
+
+
+async def test_setup_form_suggests_kaposvar(hass) -> None:
+    from homeassistant import config_entries
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    suggested = {
+        str(key): key.description["suggested_value"]
+        for key in result["data_schema"].schema
+        if key.description and "suggested_value" in key.description
+    }
+    assert suggested["city"] == "Kaposvár"
+    assert suggested["station_id"] == "IKAPOS27"
+
+
+async def test_forecast_today_is_not_narrower_than_the_measured_range(
+    hass, aioclient_mock, freezer
+) -> None:
+    """MET Norway only covers the remaining hours of today: the station fills the gap."""
+    freezer.move_to(NOW)
+    warm = copy.deepcopy(load_json("wu_observation.json"))
+    warm["observations"][0]["imperial"]["temp"] = 68.0  # 20 degC measured today
+    mock_apis(aioclient_mock, observation=warm, wu_forecast_status=401, metno=_metno_series())
+    entry = make_entry(data={"forecast_source": "metno"})
+    await _setup(hass, entry)
+    today = entry.runtime_data.forecast.daily[0]
+    assert today["datetime"] == "2026-10-30T23:00:00+00:00"
+    assert today["temperature"] == 20.0  # MET alone said 12.0
