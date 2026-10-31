@@ -1,0 +1,16 @@
+{
+  "dayOfWeek": ["Saturday", "Sunday", "Monday"],
+  "validTimeLocal": ["2026-10-31T07:00:00+0100", "2026-11-01T07:00:00+0100", "2026-11-02T07:00:00+0100"],
+  "calendarDayTemperatureMax": [14, 12, 9],
+  "calendarDayTemperatureMin": [4, 3, 6],
+  "qpf": [0.0, 0.0, 7.5],
+  "daypart": [
+    {
+      "iconCode": [null, 31, 30, 29, 12, 26],
+      "windSpeed": [null, 8, 12, 6, 25, 18],
+      "precipChance": [null, 5, 10, 10, 90, 60],
+      "cloudCover": [null, 10, 40, 30, 95, 90],
+      "uvIndex": [null, 0, 2, 0, 1, 0]
+    }
+  ]
+}

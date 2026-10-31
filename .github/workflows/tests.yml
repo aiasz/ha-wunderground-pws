@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install test dependencies
+        run: pip install -r requirements_test.txt
+      - name: Lint
+        run: |
+          ruff check custom_components tests
+          ruff format --check custom_components tests
+      - name: Check manifest version matches the tag (release builds)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python - <<'EOF'
+          import json, os
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          version = json.load(open("custom_components/wunderground_pws/manifest.json"))["version"]
+          assert tag == version, f"tag {tag} != manifest {version}"
+          EOF
+      - name: Tests
+        run: pytest

@@ -3,44 +3,222 @@
     "step": {
       "user": {
         "title": "Set up Wunderground PWS",
-        "description": "Enter your Weather Underground station ID (e.g. IKAPOS27) and optionally your API key. If the API key field is left blank, the integration will attempt to discover it automatically. Optionally enter a forecast city to show a 7-day forecast on the HA weather card.",
+        "description": "Enter the Weather Underground station ID (e.g. IKAPOS27). The API key is optional: if you leave it empty, the integration tries to obtain one automatically (demo mode). Entering a forecast city shows a 7-day forecast on the weather card.",
         "data": {
           "station_id": "Station ID (e.g. IKAPOS27)",
-          "api_key": "API Key (blank = auto-discover)",
+          "api_key": "API key (empty = automatic discovery)",
           "scan_interval": "Update interval (minutes)",
-          "city": "Forecast city (e.g. Kaposvár) — optional",
-          "forecast_source": "Forecast source (auto / wunderground / metno / openmeteo)"
+          "city": "Forecast city (e.g. Kaposvár) - optional",
+          "forecast_source": "Forecast source"
         }
       },
       "discover": {
-        "title": "Confirm API Key",
-        "description": "Auto-discovery result: **{discovery_status}** (station: {station_id}).\n\nVerify or correct the key shown below, or enter one manually if auto-discovery failed.",
+        "title": "Confirm the API key",
+        "description": "Automatic API key discovery for station {station_id}: **{discovery_status}**.\n\nCheck the key below, or enter your own key if the discovery did not work.",
         "data": {
-          "api_key": "API Key"
+          "api_key": "API key"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Wunderground PWS",
+        "description": "The API key of station {station_id} no longer works. Enter a new key, or leave the field empty to try the automatic discovery again.",
+        "data": {
+          "api_key": "API key (empty = automatic discovery)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Could not connect to the WU API. Please check your station ID and API key.",
-      "api_key_required": "The API key cannot be empty."
+      "cannot_connect": "Could not connect to the Weather Underground API. Please try again later.",
+      "invalid_auth": "The API key was rejected by Weather Underground.",
+      "unknown_station": "The station was not found or has not reported recent data. Check the station ID.",
+      "api_key_required": "The API key cannot be empty.",
+      "discovery_failed": "The automatic API key discovery did not find a key. Enter one manually."
     },
     "abort": {
-      "already_configured": "This station is already configured."
+      "already_configured": "This station is already configured.",
+      "reauth_successful": "The API key was updated."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Wunderground PWS options",
-        "description": "Clearing the API key field will trigger automatic re-discovery on the next integration reload.",
+        "title": "Wunderground PWS options (station {station_id})",
+        "description": "Clearing the API key field starts the automatic key discovery. The station ID cannot be changed - add a new entry for another station.\n\nForecast source **auto** tries Weather Underground, then MET Norway, then Open-Meteo.\n\n**blend** combines all sources into one consensus forecast (best accuracy, more API calls). Hourly data comes from Open-Meteo / MET Norway.",
         "data": {
-          "station_id": "Station ID (e.g. IKAPOS27)",
-          "api_key": "API Key (blank = auto-discover on reload)",
+          "api_key": "API key (empty = automatic discovery)",
           "scan_interval": "Update interval (minutes)",
-          "city": "Forecast city (e.g. Kaposvár) — optional",
-          "forecast_source": "Forecast source (auto / wunderground / metno / openmeteo)"
+          "city": "Forecast city (e.g. Kaposvár) - optional",
+          "forecast_source": "Forecast source",
+          "openmeteo_model": "Open-Meteo weather model"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the Weather Underground API. Please try again later.",
+      "invalid_auth": "The API key was rejected by Weather Underground.",
+      "unknown_station": "The station was not found or has not reported recent data.",
+      "discovery_failed": "The automatic API key discovery did not find a key. Enter one manually."
+    }
+  },
+  "selector": {
+    "forecast_source": {
+      "options": {
+        "auto": "Automatic (Weather Underground → MET Norway → Open-Meteo)",
+        "wunderground": "Weather Underground only",
+        "metno": "MET Norway only",
+        "openmeteo": "Open-Meteo only",
+        "blend": "Blend of all sources (consensus)"
+      }
+    },
+    "openmeteo_model": {
+      "options": {
+        "best_match": "Best match (automatic)",
+        "ecmwf_ifs": "ECMWF IFS (9 km)",
+        "dwd_icon_eu": "DWD ICON-EU (7 km)",
+        "dwd_icon_seamless": "DWD ICON seamless"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "Temperature"
+      },
+      "feels_like": {
+        "name": "Feels-like temperature"
+      },
+      "dew_point": {
+        "name": "Dew point"
+      },
+      "heat_index": {
+        "name": "Heat index"
+      },
+      "wind_chill": {
+        "name": "Wind chill"
+      },
+      "wet_bulb": {
+        "name": "Wet-bulb temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "pressure": {
+        "name": "Pressure"
+      },
+      "wind_speed": {
+        "name": "Wind speed"
+      },
+      "wind_gust": {
+        "name": "Wind gust"
+      },
+      "wind_bearing": {
+        "name": "Wind bearing"
+      },
+      "wind_compass": {
+        "name": "Wind direction",
+        "state": {
+          "n": "N",
+          "nne": "NNE",
+          "ne": "NE",
+          "ene": "ENE",
+          "e": "E",
+          "ese": "ESE",
+          "se": "SE",
+          "sse": "SSE",
+          "s": "S",
+          "ssw": "SSW",
+          "sw": "SW",
+          "wsw": "WSW",
+          "w": "W",
+          "wnw": "WNW",
+          "nw": "NW",
+          "nnw": "NNW"
+        }
+      },
+      "wind_compass_hu": {
+        "name": "Wind direction (Hungarian)"
+      },
+      "precipitation_rate": {
+        "name": "Precipitation intensity"
+      },
+      "precipitation_today": {
+        "name": "Precipitation (today)"
+      },
+      "solar_radiation": {
+        "name": "Solar radiation"
+      },
+      "absolute_humidity": {
+        "name": "Absolute humidity"
+      },
+      "cloud_base": {
+        "name": "Cloud base"
+      },
+      "uv_index": {
+        "name": "UV index"
+      },
+      "observation_age": {
+        "name": "Observation age"
+      },
+      "temperature_max_today": {
+        "name": "Temperature (today's maximum)"
+      },
+      "temperature_min_today": {
+        "name": "Temperature (today's minimum)"
+      },
+      "wind_gust_max_today": {
+        "name": "Wind gust (today's maximum)"
+      },
+      "pressure_change_3h": {
+        "name": "Pressure change (3 h)"
+      },
+      "pressure_tendency": {
+        "name": "Pressure tendency",
+        "state": {
+          "rising": "Rising",
+          "steady": "Steady",
+          "falling": "Falling"
+        }
+      },
+      "wu_api_calls_today": {
+        "name": "Weather Underground API calls today"
+      },
+      "forecast_updated": {
+        "name": "Forecast updated"
+      },
+      "forecast_source": {
+        "name": "Forecast source in use",
+        "state": {
+          "wunderground": "Weather Underground",
+          "metno": "MET Norway",
+          "openmeteo": "Open-Meteo",
+          "blend": "Blend (consensus)"
+        }
+      },
+      "forecast_mae_wunderground": {
+        "name": "Forecast error: Weather Underground"
+      },
+      "forecast_mae_metno": {
+        "name": "Forecast error: MET Norway"
+      },
+      "forecast_mae_openmeteo": {
+        "name": "Forecast error: Open-Meteo"
+      }
+    },
+    "binary_sensor": {
+      "station_online": {
+        "name": "Station online"
+      }
+    },
+    "weather": {
+      "weather": {
+        "name": "Weather"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh now",
+      "description": "Refreshes the station observation and the forecast of all Wunderground PWS entries immediately."
     }
   }
 }

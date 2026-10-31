@@ -3,44 +3,222 @@
     "step": {
       "user": {
         "title": "Wunderground PWS beállítása",
-        "description": "Add meg a Weather Underground állomás azonosítódat (pl. IKAPOS27) és opcionálisan az API kulcsodat. Ha az API kulcsot üresen hagyod, az integráció megpróbálja automatikusan begyűjteni azt. Opcionálisan adj meg egy várost az előrejelzéshez, így a HA időjárás kártyán 7 napos előrejelzés is megjelenik.",
+        "description": "Add meg a Weather Underground állomás azonosítóját (pl. IKAPOS27). Az API kulcs opcionális: ha üresen hagyod, az integráció megpróbálja automatikusan beszerezni (demo mód). Az előrejelzési város megadásával a HA időjárás kártyán 7 napos előrejelzés jelenik meg.",
         "data": {
           "station_id": "Állomás azonosító (pl. IKAPOS27)",
           "api_key": "API kulcs (üres = automatikus keresés)",
           "scan_interval": "Frissítési időköz (perc)",
           "city": "Előrejelzési város (pl. Kaposvár) — opcionális",
-          "forecast_source": "Előrejelzés forrása (auto / wunderground / metno / openmeteo)"
+          "forecast_source": "Előrejelzés forrása"
         }
       },
       "discover": {
         "title": "API kulcs megerősítése",
-        "description": "Az automatikus API kulcs keresés eredménye: **{discovery_status}** (állomás: {station_id}).\n\nEllenőrizd vagy javítsd ki a talált kulcsot, illetve add meg kézzel, ha az automatikus keresés nem sikerült.",
+        "description": "Az automatikus API kulcs keresés eredménye a(z) {station_id} állomásra: **{discovery_status}**.\n\nEllenőrizd a lenti kulcsot, vagy add meg a sajátodat, ha a keresés nem sikerült.",
         "data": {
           "api_key": "API kulcs"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Wunderground PWS újrahitelesítés",
+        "description": "A(z) {station_id} állomás API kulcsa már nem működik. Adj meg egy új kulcsot, vagy hagyd üresen a mezőt az automatikus keresés újrapróbálásához.",
+        "data": {
+          "api_key": "API kulcs (üres = automatikus keresés)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nem sikerült csatlakozni a WU API-hoz. Ellenőrizd az állomás azonosítót és az API kulcsot.",
-      "api_key_required": "Az API kulcs nem lehet üres."
+      "cannot_connect": "Nem sikerült csatlakozni a Weather Underground API-hoz. Próbáld újra később.",
+      "invalid_auth": "A Weather Underground elutasította az API kulcsot.",
+      "unknown_station": "Az állomás nem található, vagy nem küldött friss adatot. Ellenőrizd az állomás azonosítót.",
+      "api_key_required": "Az API kulcs nem lehet üres.",
+      "discovery_failed": "Az automatikus kulcskeresés nem talált kulcsot. Add meg kézzel."
     },
     "abort": {
-      "already_configured": "Ez az állomás már be van állítva."
+      "already_configured": "Ez az állomás már be van állítva.",
+      "reauth_successful": "Az API kulcs frissítve."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Wunderground PWS beállítások módosítása",
-        "description": "Az API kulcs mezőt üresen hagyva az integráció újratöltéskor automatikusan megkísérli a kulcs begyűjtését.\n\nElőrejelzés-forrás: **auto** = WU → MET.no → Open-Meteo (fallback lánc).",
+        "title": "Wunderground PWS beállítások ({station_id} állomás)",
+        "description": "Az API kulcs mező kiürítése elindítja az automatikus kulcskeresést. Az állomás azonosító nem módosítható — másik állomáshoz vegyél fel új bejegyzést.\n\nAz **auto** előrejelzés-forrás sorban a Weather Undergroundot, a MET Norway-t, majd az Open-Meteót próbálja.\n\nA **blend** az összes forrást egyetlen konszenzus-előrejelzéssé egyesíti (pontosabb, több API-hívással). Az óránkénti adat az Open-Meteóból / MET Norway-ből jön.",
         "data": {
-          "station_id": "Állomás azonosító (pl. IKAPOS27)",
-          "api_key": "API kulcs (üres = automatikus keresés újratöltéskor)",
+          "api_key": "API kulcs (üres = automatikus keresés)",
           "scan_interval": "Frissítési időköz (perc)",
           "city": "Előrejelzési város (pl. Kaposvár) — opcionális",
-          "forecast_source": "Előrejelzés forrása (auto / wunderground / metno / openmeteo)"
+          "forecast_source": "Előrejelzés forrása",
+          "openmeteo_model": "Open-Meteo időjárási modell"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Nem sikerült csatlakozni a Weather Underground API-hoz. Próbáld újra később.",
+      "invalid_auth": "A Weather Underground elutasította az API kulcsot.",
+      "unknown_station": "Az állomás nem található, vagy nem küldött friss adatot.",
+      "discovery_failed": "Az automatikus kulcskeresés nem talált kulcsot. Add meg kézzel."
+    }
+  },
+  "selector": {
+    "forecast_source": {
+      "options": {
+        "auto": "Automatikus (Weather Underground → MET Norway → Open-Meteo)",
+        "wunderground": "Csak Weather Underground",
+        "metno": "Csak MET Norway",
+        "openmeteo": "Csak Open-Meteo",
+        "blend": "Az összes forrás együtt (konszenzus / blend)"
+      }
+    },
+    "openmeteo_model": {
+      "options": {
+        "best_match": "Legjobb találat (automatikus)",
+        "ecmwf_ifs": "ECMWF IFS (9 km)",
+        "dwd_icon_eu": "DWD ICON-EU (7 km)",
+        "dwd_icon_seamless": "DWD ICON seamless"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "Hőmérséklet"
+      },
+      "feels_like": {
+        "name": "Érzett hőmérséklet"
+      },
+      "dew_point": {
+        "name": "Harmatpont"
+      },
+      "heat_index": {
+        "name": "Hőérzet index"
+      },
+      "wind_chill": {
+        "name": "Szélhűtési index"
+      },
+      "wet_bulb": {
+        "name": "Nedves hőmérséklet"
+      },
+      "humidity": {
+        "name": "Páratartalom"
+      },
+      "pressure": {
+        "name": "Légnyomás"
+      },
+      "wind_speed": {
+        "name": "Szélerősség"
+      },
+      "wind_gust": {
+        "name": "Széllökés"
+      },
+      "wind_bearing": {
+        "name": "Szélirány (fok)"
+      },
+      "wind_compass": {
+        "name": "Szélirány",
+        "state": {
+          "n": "É",
+          "nne": "ÉÉK",
+          "ne": "ÉK",
+          "ene": "KÉK",
+          "e": "K",
+          "ese": "KDK",
+          "se": "DK",
+          "sse": "DDK",
+          "s": "D",
+          "ssw": "DDNy",
+          "sw": "DNy",
+          "wsw": "NyDNy",
+          "w": "Ny",
+          "wnw": "NyÉNy",
+          "nw": "ÉNy",
+          "nnw": "ÉÉNy"
+        }
+      },
+      "wind_compass_hu": {
+        "name": "Szélirány (magyar)"
+      },
+      "precipitation_rate": {
+        "name": "Csapadék intenzitás"
+      },
+      "precipitation_today": {
+        "name": "Csapadék (ma)"
+      },
+      "solar_radiation": {
+        "name": "Napsugárzás"
+      },
+      "absolute_humidity": {
+        "name": "Abszolút páratartalom"
+      },
+      "cloud_base": {
+        "name": "Felhőalap"
+      },
+      "uv_index": {
+        "name": "UV-index"
+      },
+      "observation_age": {
+        "name": "Mérés életkora"
+      },
+      "temperature_max_today": {
+        "name": "Hőmérséklet (mai maximum)"
+      },
+      "temperature_min_today": {
+        "name": "Hőmérséklet (mai minimum)"
+      },
+      "wind_gust_max_today": {
+        "name": "Széllökés (mai maximum)"
+      },
+      "pressure_change_3h": {
+        "name": "Légnyomás-változás (3 óra)"
+      },
+      "pressure_tendency": {
+        "name": "Légnyomás-tendencia",
+        "state": {
+          "rising": "Emelkedő",
+          "steady": "Állandó",
+          "falling": "Csökkenő"
+        }
+      },
+      "wu_api_calls_today": {
+        "name": "Weather Underground API hívások ma"
+      },
+      "forecast_updated": {
+        "name": "Előrejelzés frissítve"
+      },
+      "forecast_source": {
+        "name": "Használt előrejelzés-forrás",
+        "state": {
+          "wunderground": "Weather Underground",
+          "metno": "MET Norway",
+          "openmeteo": "Open-Meteo",
+          "blend": "Konszenzus (blend)"
+        }
+      },
+      "forecast_mae_wunderground": {
+        "name": "Előrejelzés hibája: Weather Underground"
+      },
+      "forecast_mae_metno": {
+        "name": "Előrejelzés hibája: MET Norway"
+      },
+      "forecast_mae_openmeteo": {
+        "name": "Előrejelzés hibája: Open-Meteo"
+      }
+    },
+    "binary_sensor": {
+      "station_online": {
+        "name": "Állomás online"
+      }
+    },
+    "weather": {
+      "weather": {
+        "name": "Időjárás"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Frissítés most",
+      "description": "Azonnal frissíti az összes Wunderground PWS bejegyzés mérését és előrejelzését."
     }
   }
 }
