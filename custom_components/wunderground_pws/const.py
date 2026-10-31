@@ -67,6 +67,7 @@ WU_DASHBOARD_URL = "https://www.wunderground.com/dashboard/pws/{station_id}"
 OPEN_METEO_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 METNO_FORECAST_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+OPEN_METEO_AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 # --- Config / option keys -------------------------------------------------------
 CONF_STATION_ID = "station_id"
@@ -76,6 +77,8 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_CITY = "city"
 CONF_FORECAST_SOURCE = "forecast_source"
 CONF_OPENMETEO_MODEL = "openmeteo_model"
+CONF_ENABLE_AIR_QUALITY = "enable_air_quality"
+DEFAULT_ENABLE_AIR_QUALITY = False
 
 # Where the API key came from. ``legacy`` = migrated from <1.5 (origin unknown);
 # it behaves like ``auto``: the key may be re-discovered when it stops working.
@@ -117,6 +120,7 @@ ATTR_OBS_AGE_MIN = "observation_age_min"
 ATTR_STATION_ONLINE = "station_online"
 ATTR_OBSERVATION_SOURCE = "observation_source"  # "wunderground_api" | "wu_citypage"
 ATTR_SOURCE_STATION_ID = "source_station_id"  # set only when observation_source is a fallback
+ATTR_UV_ESTIMATED = "uv_index_estimated"  # True when uv_index came from the forecast, not a sensor
 ATTR_TEMP_MAX_TODAY = "temperature_max_today"
 ATTR_TEMP_MIN_TODAY = "temperature_min_today"
 ATTR_GUST_MAX_TODAY = "wind_gust_max_today"
@@ -218,3 +222,128 @@ ATTRIBUTION_FORECAST = {
     FORECAST_SOURCE_METNO: "Forecast: MET Norway (CC BY 4.0)",
     FORECAST_SOURCE_OPENMETEO: "Forecast: Open-Meteo.com (CC BY 4.0)",
 }
+
+# --- Air quality & pollen (M3, v1.7.0) --------------------------------------------------
+# Open-Meteo Air Quality API (CAMS Europe / CAMS Global models), free, no key.
+# https://open-meteo.com/en/docs/air-quality-api - CC BY 4.0.
+AQ_TTL = timedelta(minutes=60)  # CAMS Europe updates about once a day; this is plenty fresh
+AQ_MAX_STALE = timedelta(hours=18)
+
+ATTR_EUROPEAN_AQI = "european_aqi"
+ATTR_EUROPEAN_AQI_LEVEL = "european_aqi_level"
+ATTR_US_AQI = "us_aqi"
+ATTR_US_AQI_LEVEL = "us_aqi_level"
+ATTR_PM2_5 = "pm2_5"
+ATTR_PM10 = "pm10"
+ATTR_NITROGEN_DIOXIDE = "nitrogen_dioxide"
+ATTR_SULPHUR_DIOXIDE = "sulphur_dioxide"
+ATTR_OZONE = "ozone"
+ATTR_CARBON_MONOXIDE = "carbon_monoxide"
+ATTR_DUST = "dust"
+
+ATTR_POLLEN_ALDER = "pollen_alder"
+ATTR_POLLEN_BIRCH = "pollen_birch"
+ATTR_POLLEN_GRASS = "pollen_grass"
+ATTR_POLLEN_MUGWORT = "pollen_mugwort"
+ATTR_POLLEN_OLIVE = "pollen_olive"
+ATTR_POLLEN_RAGWEED = "pollen_ragweed"
+# Level attribute keys follow the pattern "<pollen key>_level"; olive is excluded (see
+# calculations.pollen_level - no single, confidently citable official scale was found).
+POLLEN_SPECIES_WITH_LEVELS = (
+    ATTR_POLLEN_ALDER,
+    ATTR_POLLEN_BIRCH,
+    ATTR_POLLEN_GRASS,
+    ATTR_POLLEN_MUGWORT,
+    ATTR_POLLEN_RAGWEED,
+)
+
+# EEA European Air Quality Index bands (per Open-Meteo's documentation of the field,
+# which mirrors the EEA's own index): 0-20 good, 20-40 fair, 40-60 moderate, 60-80 poor,
+# 80-100 very poor, >100 extremely poor. Source: open-meteo.com/en/docs/air-quality-api.
+AQI_LEVEL_GOOD = "good"
+AQI_LEVEL_FAIR = "fair"
+AQI_LEVEL_MODERATE = "moderate"
+AQI_LEVEL_POOR = "poor"
+AQI_LEVEL_VERY_POOR = "very_poor"
+AQI_LEVEL_EXTREMELY_POOR = "extremely_poor"
+EUROPEAN_AQI_LEVELS = [
+    AQI_LEVEL_GOOD,
+    AQI_LEVEL_FAIR,
+    AQI_LEVEL_MODERATE,
+    AQI_LEVEL_POOR,
+    AQI_LEVEL_VERY_POOR,
+    AQI_LEVEL_EXTREMELY_POOR,
+]
+# (upper, level) bands, checked in order; the last entry is the open-ended top band.
+EUROPEAN_AQI_BANDS: list[tuple[float, str]] = [
+    (20.0, AQI_LEVEL_GOOD),
+    (40.0, AQI_LEVEL_FAIR),
+    (60.0, AQI_LEVEL_MODERATE),
+    (80.0, AQI_LEVEL_POOR),
+    (100.0, AQI_LEVEL_VERY_POOR),
+    (float("inf"), AQI_LEVEL_EXTREMELY_POOR),
+]
+
+# US EPA AQI bands (standard, well-established 0-500 scale).
+US_AQI_LEVEL_GOOD = "good"
+US_AQI_LEVEL_MODERATE = "moderate"
+US_AQI_LEVEL_UNHEALTHY_SENSITIVE = "unhealthy_for_sensitive_groups"
+US_AQI_LEVEL_UNHEALTHY = "unhealthy"
+US_AQI_LEVEL_VERY_UNHEALTHY = "very_unhealthy"
+US_AQI_LEVEL_HAZARDOUS = "hazardous"
+US_AQI_LEVELS = [
+    US_AQI_LEVEL_GOOD,
+    US_AQI_LEVEL_MODERATE,
+    US_AQI_LEVEL_UNHEALTHY_SENSITIVE,
+    US_AQI_LEVEL_UNHEALTHY,
+    US_AQI_LEVEL_VERY_UNHEALTHY,
+    US_AQI_LEVEL_HAZARDOUS,
+]
+US_AQI_BANDS: list[tuple[float, str]] = [
+    (50.0, US_AQI_LEVEL_GOOD),
+    (100.0, US_AQI_LEVEL_MODERATE),
+    (150.0, US_AQI_LEVEL_UNHEALTHY_SENSITIVE),
+    (200.0, US_AQI_LEVEL_UNHEALTHY),
+    (300.0, US_AQI_LEVEL_VERY_UNHEALTHY),
+    (float("inf"), US_AQI_LEVEL_HAZARDOUS),
+]
+
+# Pollen load classes (mean daily grains/m3): MeteoSwiss, "Threshold values for pollen
+# load classes of allergenic pollen types" (Jan 2024), a national meteorological
+# service's official, species-specific table - the most solid single source found.
+# Olive is deliberately NOT included: no single, confidently citable official European
+# scale was found for it (regional Spanish/Portuguese studies disagree by a factor of
+# 4-10x), so its raw concentration is shown without a fabricated level (see PLAN.md D7).
+POLLEN_LEVEL_LOW = "low"
+POLLEN_LEVEL_MODERATE = "moderate"
+POLLEN_LEVEL_HIGH = "high"
+POLLEN_LEVEL_VERY_HIGH = "very_high"
+POLLEN_LEVELS = [POLLEN_LEVEL_LOW, POLLEN_LEVEL_MODERATE, POLLEN_LEVEL_HIGH, POLLEN_LEVEL_VERY_HIGH]
+# {species_attr: [(upper, level), ..., (inf, very_high)]}
+POLLEN_BANDS: dict[str, list[tuple[float, str]]] = {
+    ATTR_POLLEN_ALDER: [(10.0, POLLEN_LEVEL_LOW), (69.0, POLLEN_LEVEL_MODERATE), (249.0, POLLEN_LEVEL_HIGH), (float("inf"), POLLEN_LEVEL_VERY_HIGH)],
+    ATTR_POLLEN_BIRCH: [(10.0, POLLEN_LEVEL_LOW), (69.0, POLLEN_LEVEL_MODERATE), (299.0, POLLEN_LEVEL_HIGH), (float("inf"), POLLEN_LEVEL_VERY_HIGH)],
+    ATTR_POLLEN_GRASS: [(19.0, POLLEN_LEVEL_LOW), (49.0, POLLEN_LEVEL_MODERATE), (149.0, POLLEN_LEVEL_HIGH), (float("inf"), POLLEN_LEVEL_VERY_HIGH)],
+    ATTR_POLLEN_MUGWORT: [(5.0, POLLEN_LEVEL_LOW), (14.0, POLLEN_LEVEL_MODERATE), (49.0, POLLEN_LEVEL_HIGH), (float("inf"), POLLEN_LEVEL_VERY_HIGH)],
+    # Ragweed/parlagfű: Hungary's dominant late-summer allergen - the main reason this
+    # feature matters locally (issue #1, ztarsoly).
+    ATTR_POLLEN_RAGWEED: [(5.0, POLLEN_LEVEL_LOW), (10.0, POLLEN_LEVEL_MODERATE), (39.0, POLLEN_LEVEL_HIGH), (float("inf"), POLLEN_LEVEL_VERY_HIGH)],
+}  # fmt: skip
+
+# --- UV (F16) ------------------------------------------------------------------------------
+# WHO Global Solar UV Index categories (who.int, "Global solar UV index: a practical guide").
+UV_LEVEL_LOW = "low"
+UV_LEVEL_MODERATE = "moderate"
+UV_LEVEL_HIGH = "high"
+UV_LEVEL_VERY_HIGH = "very_high"
+UV_LEVEL_EXTREME = "extreme"
+UV_LEVELS = [UV_LEVEL_LOW, UV_LEVEL_MODERATE, UV_LEVEL_HIGH, UV_LEVEL_VERY_HIGH, UV_LEVEL_EXTREME]
+UV_BANDS: list[tuple[float, str]] = [
+    (2.0, UV_LEVEL_LOW),
+    (5.0, UV_LEVEL_MODERATE),
+    (7.0, UV_LEVEL_HIGH),
+    (10.0, UV_LEVEL_VERY_HIGH),
+    (float("inf"), UV_LEVEL_EXTREME),
+]
+# WHO recommends sun protection from this UV index upward.
+UV_PROTECTION_THRESHOLD = 3.0

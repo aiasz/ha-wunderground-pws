@@ -6,6 +6,67 @@ Minden lényeges változás ebben a fájlban szerepel. A formátum a
 
 A `B##` / `F##` / `M#` / `S#` azonosítók a fejlesztési terv (`PLAN.md`) tételeire hivatkoznak.
 
+## [1.7.0] – 2026-10-31
+
+**Sürgős javítás**, élő Home Assistant tesztpéldányban megerősítve: a beállítás saját API kulcs
+nélkül teljesen elakadt, és a kulcs nélküli tartalék forrásnál (1.6.1) több adat is hiányzott.
+
+### Javítva (kritikus)
+- **A beállítás nem fejeződött be API kulcs nélkül, még beállított tartalék-várossal sem**
+  (`P0`): a beállítási folyamat minden esetben megkövetelte egy *valóban működő* WU API kulcs
+  sikeres ellenőrzését, mielőtt elmentette a bejegyzést — függetlenül attól, hogy be volt-e
+  állítva előrejelzési város a tartalékhoz (F09, 1.6.1). Mivel a demo módban kinyert kulcsot a
+  WU ma elutasítja, a beállítás **sosem tudott sikerrel lezárulni** saját kulcs nélkül. Mostantól:
+  ha az automatikusan talált/megadott kulcs ellenőrzése sikertelen, **de van beállított város**,
+  a bejegyzés mégis létrejön — a koordinátor saját ütemezése szerint újra próbálja a kulcsot
+  (S12), eközben a városi tartalékra támaszkodik (F09). Ha nincs kulcs és nincs város sem, a
+  beállítás továbbra is hibát jelez — ekkor tényleg nincs honnan adatot szerezni.
+  Élőben, valódi Home Assistant példányban megerősítve.
+- **Üres állomásazonosítóval is el lehetett menteni a beállítást**, ami egy zsákutcás
+  folyamatba vitte a felhasználót hibaüzenet nélkül. Mostantól az üres/csak szóközt tartalmazó
+  azonosító egyértelmű hibát ad.
+
+### Javítva (adathiány a kulcs nélküli tartalék forrásnál, 1.6.1 óta)
+Élő teszt alapján a `wu_citypage` tartalék forrás több mezőt is kihagyott, amit a valódi WU API
+megadna. Ahol **becsületesen pótolható volt valódi adatból**, pótoltuk:
+- **Koordináták (lat/lon):** a már amúgy is geokódolt város helyéből.
+- **Szélirány fokban:** a 22,5°-os iránytű-szektor középértékéből (jelölve: ±11,25° becslés).
+- **Hőérzet index (heat_index):** új, szabványos NWS Rothfusz-képlet — ezentúl bármelyik
+  forrásnál számolódik, ha a forrás maga nem adja meg (a WU API-nál is, tartalék funkcióként).
+- **UV-index:** a már lekért előrejelzésből (ha az Open-Meteo a használt forrás — lásd lent).
+
+**Amit tudatosan nem pótoltunk kitalált adattal** (a megfelelő szenzor „nem elérhető" marad):
+széllökés, csapadék-intenzitás (pillanatnyi ráta), napsugárzás — ezekre a tartalék oldalon
+nincs semmilyen valós alapadat. **Ismert korlát:** az UV-pótlás csak akkor működik, ha az
+Open-Meteo a ténylegesen használt előrejelzés-forrás; ha a MET Norway válaszol előbb (ennek
+API-ja nem ad UV-adatot), az UV-index is „nem elérhető" marad. Ez szándékos: egy hiányzó
+érték jobb, mint egy kitalált szám.
+
+### Hozzáadva (levegőminőség, pollen, UV — `M3`, opcionális)
+A `#1` hibajegyben kért funkció: légszennyezettség, pollen és UV-kockázat, ingyenes,
+kulcs nélküli forrásból (Open-Meteo Air Quality API, CAMS Europe/Global modellek, CC BY 4.0).
+**Alapértelmezetten kikapcsolva** (plusz API-hívás/frissítés) — bekapcsolás a bejegyzés
+**beállításaiban** (`Levegőminőség- és pollenszenzorok`); minden egyes szenzor emellett
+egyenként is engedélyezendő az entitás-listában (ugyanaz a minta, mint az előrejelzés
+pontosság-szenzoroknál) — ezek niche, diagnosztikai jellegű adatok.
+- **Légszennyezettség-index:** európai (EEA) és amerikai (US EPA) AQI, mindkettő a saját
+  hivatalos sávbeosztásával (`level` attribútum: jó/közepes/rossz stb.).
+- **Szennyezőanyagok:** PM2.5, PM10, nitrogén-dioxid, kén-dioxid, ózon, szén-monoxid (µg/m³).
+- **Pollen (6 faj):** éger, nyír, fűfélék, üröm, olajfa, **parlagfű** — Magyarország
+  legjelentősebb késő-nyári allergénje, ez a funkció fő motivációja. A terhelési
+  kategóriákhoz (alacsony/közepes/magas/nagyon magas) a svájci meteorológiai szolgálat
+  (MeteoSwiss) fajspecifikus, hivatalos küszöbértékeit használjuk — ez volt az egyetlen
+  olyan egységes, forrásként megnevezhető táblázat, amit találtunk. **Az olajfa pollenre
+  tudatosan nincs kategória** (csak nyers érték): nem találtunk egyetlen, megbízhatóan
+  hivatkozható európai skálát rá (a spanyol/portugál regionális tanulmányok 4-10x-es
+  eltéréssel adnak eltérő küszöböket) — egy hiányzó kategória jobb, mint egy kitalált.
+- **UV-szint (WHO kategória):** a meglévő UV-index (`uv_index`) WHO "Global Solar UV Index"
+  kategóriája (alacsony/közepes/magas/nagyon magas/extrém) — új szenzor, **alapértelmezetten
+  bekapcsolva**, nem az opcionális levegőminőség-funkció része.
+- **UV-védelem szükséges (bináris szenzor):** `on`, ha az UV-index eléri a WHO által
+  ajánlott védelmi küszöböt (3) — **alapértelmezetten bekapcsolva**.
+- 25 új teszt (253 összesen), ruff clean.
+
 ## [1.6.1] – 2026-10-31
 
 Kulcs nélküli megfigyelés-tartalék (F09): nyilvános Weather Underground városi oldal.

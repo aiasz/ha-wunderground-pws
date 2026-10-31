@@ -32,6 +32,7 @@
       "invalid_auth": "A Weather Underground elutasította az API kulcsot.",
       "unknown_station": "Az állomás nem található, vagy nem küldött friss adatot. Ellenőrizd az állomás azonosítót.",
       "api_key_required": "Az API kulcs nem lehet üres.",
+      "station_id_required": "Az állomás azonosító nem lehet üres.",
       "discovery_failed": "Az automatikus kulcskeresés nem talált kulcsot. Add meg kézzel."
     },
     "abort": {
@@ -49,7 +50,8 @@
           "scan_interval": "Frissítési időköz (perc)",
           "city": "Előrejelzési / tartalék-forrás város (pl. Kaposvár) — opcionális",
           "forecast_source": "Előrejelzés forrása",
-          "openmeteo_model": "Open-Meteo időjárási modell"
+          "openmeteo_model": "Open-Meteo időjárási modell",
+          "enable_air_quality": "Levegőminőség- és pollenszenzorok (plusz API-hívás frissítésenként)"
         }
       }
     },
@@ -212,11 +214,66 @@
       },
       "source_station_id": {
         "name": "Tartalék forrás állomása"
+      },
+      "uv_level": {
+        "name": "UV-szint",
+        "state": {
+          "low": "Alacsony",
+          "moderate": "Mérsékelt",
+          "high": "Magas",
+          "very_high": "Nagyon magas",
+          "extreme": "Extrém"
+        }
+      },
+      "european_aqi": {
+        "name": "Európai levegőminőség-index"
+      },
+      "us_aqi": {
+        "name": "Amerikai (US) levegőminőség-index"
+      },
+      "pm2_5": {
+        "name": "PM2.5"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "nitrogen_dioxide": {
+        "name": "Nitrogén-dioxid (NO₂)"
+      },
+      "sulphur_dioxide": {
+        "name": "Kén-dioxid (SO₂)"
+      },
+      "ozone": {
+        "name": "Ózon (O₃)"
+      },
+      "carbon_monoxide": {
+        "name": "Szén-monoxid (CO)"
+      },
+      "pollen_alder": {
+        "name": "Égerfa pollen"
+      },
+      "pollen_birch": {
+        "name": "Nyírfa pollen"
+      },
+      "pollen_grass": {
+        "name": "Fűfélék pollenje"
+      },
+      "pollen_mugwort": {
+        "name": "Üröm pollen"
+      },
+      "pollen_olive": {
+        "name": "Olajfa pollen"
+      },
+      "pollen_ragweed": {
+        "name": "Parlagfű pollen"
       }
     },
     "binary_sensor": {
       "station_online": {
         "name": "Állomás online"
+      },
+      "uv_protection_needed": {
+        "name": "UV-védelem szükséges"
       }
     },
     "weather": {

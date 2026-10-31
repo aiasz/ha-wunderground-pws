@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integration
 
-**Author: Aiasz · Version 1.6.1 · [Magyar README](README.md)**
+**Author: Aiasz · Version 1.7.0 · [Magyar README](README.md)**
 
 Shows the data of any [Weather Underground](https://www.wunderground.com/) personal weather station (PWS)
 in Home Assistant through the **official WU API**, in metric units, and adds a **multi-provider forecast**
@@ -28,6 +28,10 @@ in Home Assistant through the **official WU API**, in metric units, and adds a *
 - **No-key observation fallback**: if the WU API is unavailable and a forecast city is set, the
   integration reads the nearest station's data from WU's public location page instead -
   transparently marked (`observation_source`, `fallback_source_station`).
+- **UV level (WHO category) and a UV-protection binary sensor**: a category computed from the
+  UV index (low…extreme), plus a sensor that is `on` when protection is recommended - on by default.
+- **Air quality and pollen (optional)**: European and US AQI, 6 pollutants, 6 pollen species
+  (including ragweed) from Open-Meteo, no key needed - see below.
 
 ## Installation
 
@@ -73,7 +77,32 @@ which only fills in after JavaScript runs and therefore cannot be used here).
   is never silently merged with your own station's identity.
 - It scrapes an undocumented, unofficial page; if WU redesigns it this source can stop working (the integration
   degrades gracefully when that happens, it does not crash).
-- A few values (wind gust, UV, solar radiation, exact wind degrees) are not on this page.
+- **Filled in from real data:** coordinates (from the city's geocoding), wind bearing in degrees
+  (compass-sector centre, a disclosed +-11.25 deg estimate), heat index (standard formula), UV
+  index (from the forecast - only when Open-Meteo is the active source; MET Norway has no UV data).
+- **Deliberately not filled in:** wind gust, precipitation rate, solar radiation - there is no
+  real underlying data for these on the fallback page, so the sensor stays "unavailable" (a
+  missing value is better than a fabricated number).
+
+### Air quality, pollen and UV (optional, `M3`)
+
+Requested in issue `#1`: air pollution, pollen and UV risk from a free, key-less source
+(Open-Meteo Air Quality API, CAMS Europe/Global models, CC BY 4.0).
+
+**Off by default** (one extra API call per refresh) - turn it on in the entry's **Configure**
+options (*"Air quality & pollen sensors"*). Once enabled, 14 new sensors appear in the entity
+list, but - like the forecast-accuracy sensors - each one must also be **enabled individually**
+(niche, diagnostic-grade data, off by default so it doesn't needlessly load the refresh cycle
+or clutter the entity list).
+
+- **Air Quality Index:** European (EEA) and US (EPA) AQI, each with its own official band
+  (`level` attribute).
+- **Pollutants:** PM2.5, PM10, nitrogen dioxide, sulphur dioxide, ozone, carbon monoxide (µg/m³).
+- **Pollen (6 species):** alder, birch, grass, mugwort, olive, **ragweed** - Hungary's dominant
+  late-summer allergen and the main motivation for this feature. Load-class thresholds
+  (low/moderate/high/very high) come from MeteoSwiss's official, species-specific table.
+  **Olive deliberately has no category** (raw value only): no single, confidently citable
+  European scale was found for it - a missing category is better than a fabricated one.
 
 ## Data sources
 
@@ -84,6 +113,7 @@ which only fills in after JavaScript runs and therefore cannot be used here).
 | Forecast | WU `v3/wx/forecast/daily/5day` (fallback: `7day`) | yes |
 | Forecast | MET Norway Locationforecast 2.0 (CC BY 4.0) | no |
 | Forecast, geocoding | Open-Meteo (CC BY 4.0) | no |
+| Air quality, pollen (optional) | Open-Meteo Air Quality API, CAMS (CC BY 4.0) | no |
 
 Required attributions: see [CREDITS](CREDITS.md). Hourly data comes from Open-Meteo or MET Norway (the WU PWS API has no hourly forecast). The `forecast_source_used` attribute shows which source answered.
 

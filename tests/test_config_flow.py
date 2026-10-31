@@ -13,10 +13,12 @@ from custom_components.wunderground_pws.const import (
     CONF_API_KEY,
     CONF_API_KEY_SOURCE,
     CONF_CITY,
+    CONF_ENABLE_AIR_QUALITY,
     CONF_FORECAST_SOURCE,
     CONF_SCAN_INTERVAL,
     CONF_STATION_ID,
     DOMAIN,
+    OPEN_METEO_AIR_QUALITY_URL,
     WU_API_URL,
     WU_DASHBOARD_URL,
 )
@@ -175,6 +177,34 @@ async def test_options_save_always_stores_the_key(hass, aioclient_mock) -> None:
     assert entry.state is ConfigEntryState.LOADED  # reloaded with the new settings
     assert entry.runtime_data.scan_interval == 10
     assert entry.runtime_data.forecast.source == "metno"
+
+
+async def test_options_can_enable_air_quality(hass, aioclient_mock) -> None:
+    """M3: the opt-in air-quality/pollen feature is off by default and only an option."""
+    entry = await _setup_entry(hass, aioclient_mock)
+    assert entry.runtime_data.air_quality is None
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    schema = result["data_schema"].schema
+    marker = next(key for key in schema if key == CONF_ENABLE_AIR_QUALITY)
+    assert marker.default() is False
+
+    aioclient_mock.get(OPEN_METEO_AIR_QUALITY_URL, json={"current": {"european_aqi": 10}})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_API_KEY: API_KEY,
+            CONF_SCAN_INTERVAL: 5,
+            CONF_CITY: "",
+            CONF_FORECAST_SOURCE: "auto",
+            CONF_ENABLE_AIR_QUALITY: True,
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_ENABLE_AIR_QUALITY] is True
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED  # changed option -> reload
+    assert entry.runtime_data.air_quality is not None
 
 
 async def test_options_changed_key_applies_without_reload(hass, aioclient_mock) -> None:

@@ -23,6 +23,7 @@ from ..calculations import (
     calculate_absolute_humidity,
     calculate_cloud_base,
     calculate_feels_like,
+    calculate_heat_index,
     calculate_wet_bulb,
     calculate_wind_chill,
     deg_to_compass,
@@ -153,7 +154,11 @@ def parse_observation(obs: dict[str, Any]) -> dict[str, Any]:
 
     out["temperature"] = temp_c
     out["dew_point"] = dewpt_c
-    out["heat_index"] = heat_c
+    # Fall back to the NWS formula if the station network ever omits its own
+    # heat index (observed to happen - keeps the sensor from going "unavailable").
+    out["heat_index"] = (
+        heat_c if heat_c is not None else calculate_heat_index(temp_c, out["humidity"])
+    )
     out["wind_speed"] = wind_kmh
     out["wind_gust"] = round(mph_to_kmh(gust_mph), 1) if gust_mph is not None else None
     out["pressure"] = round(inhg_to_hpa(press_inhg), 2) if press_inhg is not None else None
@@ -164,7 +169,7 @@ def parse_observation(obs: dict[str, Any]) -> dict[str, Any]:
     # Derived values (PLAN.md F13). ``feels_like`` is no longer a copy of the
     # heat index (B11): it switches between wind chill / heat index / air temp.
     out["wind_chill"] = calculate_wind_chill(temp_c, wind_kmh)
-    out["feels_like"] = calculate_feels_like(temp_c, heat_c, wind_kmh)
+    out["feels_like"] = calculate_feels_like(temp_c, heat_c, wind_kmh, out["humidity"])
     out["cloud_base"] = calculate_cloud_base(temp_c, dewpt_c)
     out["absolute_humidity"] = calculate_absolute_humidity(temp_c, out["humidity"])
     out["wet_bulb"] = calculate_wet_bulb(temp_c, out["humidity"])

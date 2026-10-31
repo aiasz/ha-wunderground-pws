@@ -44,6 +44,7 @@ from ..calculations import (
     calculate_absolute_humidity,
     calculate_cloud_base,
     calculate_feels_like,
+    calculate_heat_index,
     calculate_wet_bulb,
     calculate_wind_chill,
     safe_float,
@@ -132,14 +133,18 @@ def _obs_time(html: str) -> datetime | None:
 def _compass_from_letters(letters: str | None) -> tuple[float | None, str | None, str | None]:
     """English compass letters (e.g. ``"N"``) -> (degrees, Hungarian label, slug).
 
-    The page only shows the 16-point compass label, never exact degrees, so
-    degrees stay ``None`` rather than fabricating false precision; the
-    Hungarian label and the enum slug are a direct 1:1 lookup, not a guess.
+    The page only shows the 16-point compass label, never exact degrees. The
+    degrees returned are the *centre* of that 22.5 degree sector (e.g. "N" ->
+    0, "NNE" -> 22.5) - a disclosed +-11.25 degree estimate, not a measurement.
+    Returning ``None`` here would leave the wind-bearing sensor permanently
+    "unavailable" through this source even though the true bearing is known to
+    within one sector; the Hungarian label and the enum slug are an exact
+    1:1 lookup of the same sector, not an estimate.
     """
     if not letters or letters not in COMPASS_EN:
         return None, None, None
     idx = COMPASS_EN.index(letters)
-    return None, COMPASS_HU[idx], COMPASS_SLUGS[idx]
+    return round(idx * 22.5, 1), COMPASS_HU[idx], COMPASS_SLUGS[idx]
 
 
 def parse_observation(html: str) -> dict[str, Any]:
@@ -188,7 +193,6 @@ def parse_observation(html: str) -> dict[str, Any]:
         "wind_dir_slug": wind_slug,
         "temperature": temperature,
         "dew_point": dew_point,
-        "heat_index": None,
         "wind_speed": wind_speed,
         "wind_gust": None,
         "pressure": _num(_PATTERNS["pressure"], html),
@@ -200,9 +204,11 @@ def parse_observation(html: str) -> dict[str, Any]:
         "condition_text": _text(_PATTERNS["condition_text"], html),
         # Derived values (F13): computed the same way for every observation
         # source, so "feels like" etc. mean the same thing regardless of where
-        # the raw reading came from.
+        # the raw reading came from. heat_index is likewise computed (the page
+        # does not report one) rather than left unavailable above ~27 degC.
         "wind_chill": calculate_wind_chill(temperature, wind_speed),
-        "feels_like": calculate_feels_like(temperature, None, wind_speed),
+        "heat_index": calculate_heat_index(temperature, humidity),
+        "feels_like": calculate_feels_like(temperature, None, wind_speed, humidity),
         "cloud_base": calculate_cloud_base(temperature, dew_point),
         "absolute_humidity": calculate_absolute_humidity(temperature, humidity),
         "wet_bulb": calculate_wet_bulb(temperature, humidity),

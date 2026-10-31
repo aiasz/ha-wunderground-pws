@@ -18,16 +18,19 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
+from .air_quality_coordinator import AirQualityCoordinator
 from .const import (
     API_KEY_SOURCE_LEGACY,
     CONF_API_KEY,
     CONF_API_KEY_SOURCE,
     CONF_CITY,
+    CONF_ENABLE_AIR_QUALITY,
     CONF_FORECAST_SOURCE,
     CONF_SCAN_INTERVAL,
     CONF_STATION_ID,
     CONFIG_ENTRY_VERSION,
     DEFAULT_CITY,
+    DEFAULT_ENABLE_AIR_QUALITY,
     DEFAULT_FORECAST_SOURCE,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STATION_ID,
@@ -63,6 +66,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             await coordinator.async_refresh()
             if coordinator.forecast is not None:
                 await coordinator.forecast.async_refresh_if_due(force=True)
+            if coordinator.air_quality is not None:
+                await coordinator.air_quality.async_refresh_if_due(force=True)
 
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, _async_refresh)
     return True
@@ -93,6 +98,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: WundergroundConfigEntry)
     # assigns the new data after _async_update_data returns).
     entry.async_on_unload(forecast.async_add_listener(coordinator.async_recompute_condition))
     await forecast.async_refresh_if_due()
+
+    # Air quality & pollen (M3): opt-in, off by default - one extra API call per cycle.
+    if get_setting(entry, CONF_ENABLE_AIR_QUALITY, DEFAULT_ENABLE_AIR_QUALITY):
+        air_quality = AirQualityCoordinator(hass, entry, forecast)
+        coordinator.air_quality = air_quality
+        await air_quality.async_refresh_if_due()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))

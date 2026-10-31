@@ -32,6 +32,7 @@
       "invalid_auth": "The API key was rejected by Weather Underground.",
       "unknown_station": "The station was not found or has not reported recent data. Check the station ID.",
       "api_key_required": "The API key cannot be empty.",
+      "station_id_required": "The station ID cannot be empty.",
       "discovery_failed": "The automatic API key discovery did not find a key. Enter one manually."
     },
     "abort": {
@@ -49,7 +50,8 @@
           "scan_interval": "Update interval (minutes)",
           "city": "Forecast / fallback city (e.g. Kaposvár) - optional",
           "forecast_source": "Forecast source",
-          "openmeteo_model": "Open-Meteo weather model"
+          "openmeteo_model": "Open-Meteo weather model",
+          "enable_air_quality": "Air quality & pollen sensors (extra API call per refresh)"
         }
       }
     },
@@ -212,11 +214,66 @@
       },
       "source_station_id": {
         "name": "Fallback source station"
+      },
+      "uv_level": {
+        "name": "UV level",
+        "state": {
+          "low": "Low",
+          "moderate": "Moderate",
+          "high": "High",
+          "very_high": "Very high",
+          "extreme": "Extreme"
+        }
+      },
+      "european_aqi": {
+        "name": "European Air Quality Index"
+      },
+      "us_aqi": {
+        "name": "US Air Quality Index"
+      },
+      "pm2_5": {
+        "name": "PM2.5"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "nitrogen_dioxide": {
+        "name": "Nitrogen dioxide (NO₂)"
+      },
+      "sulphur_dioxide": {
+        "name": "Sulphur dioxide (SO₂)"
+      },
+      "ozone": {
+        "name": "Ozone (O₃)"
+      },
+      "carbon_monoxide": {
+        "name": "Carbon monoxide (CO)"
+      },
+      "pollen_alder": {
+        "name": "Alder pollen"
+      },
+      "pollen_birch": {
+        "name": "Birch pollen"
+      },
+      "pollen_grass": {
+        "name": "Grass pollen"
+      },
+      "pollen_mugwort": {
+        "name": "Mugwort pollen"
+      },
+      "pollen_olive": {
+        "name": "Olive pollen"
+      },
+      "pollen_ragweed": {
+        "name": "Ragweed pollen (parlagfű)"
       }
     },
     "binary_sensor": {
       "station_online": {
         "name": "Station online"
+      },
+      "uv_protection_needed": {
+        "name": "UV protection needed"
       }
     },
     "weather": {
