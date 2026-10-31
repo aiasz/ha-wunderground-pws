@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integráció
 
-**Készítő: Aiasz · Verzió: 1.7.0 · [English README](README.en.md)**
+**Készítő: Aiasz · Verzió: 1.7.1 · [English README](README.en.md)**
 
 Bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait
 megjeleníti a Home Assistantban – az **official WU API**-n keresztül, metrikus egységekkel – és mellé
@@ -35,6 +35,10 @@ tartalék-lánccal. Magyar és angol nyelven használható.
   (alacsony…extrém) és egy bináris szenzor, amely jelzi, ha védelem ajánlott – alapból bekapcsolva.
 - **Levegőminőség és pollen (opcionális)**: európai és amerikai AQI, 6 szennyezőanyag, 6 pollenfaj
   (köztük a parlagfű) az Open-Meteóból, kulcs nélkül – lásd lent.
+- **Napfénytartam (ma) szenzor**, és a hiányzó mérések (széllökés, csapadék-intenzitás,
+  napsugárzás, UV) automatikus pótlása egy mindig aktív, kulcs nélküli Open-Meteo
+  kiegészítő lekérésből, amikor a saját mérés nem adja meg – átlátszóan jelölve
+  (`estimated` attribútum) – lásd lent.
 - **Beállítások újraindítás nélkül** módosíthatók (Configure).
 
 ## Telepítés
@@ -88,11 +92,9 @@ oldal, amely csak JavaScript-tel töltődik fel, és amelyet ezért az integrác
 - Nem hivatalos, nem dokumentált oldalszerkezetre épül; ha a WU átalakítja az oldalt, ez a forrás
   átmenetileg leállhat (az integráció ekkor a szokásos hibakezeléssel jelez, nem omlik össze).
 - **Amit pótolunk valódi adatból:** koordináták (a város geokódolásából), szélirány fokban
-  (iránytű-szektor középértéke, ±11,25° becslés), hőérzet index (szabványos képlet), UV-index
-  (az előrejelzésből — csak ha az Open-Meteo a használt forrás, a MET Norway-nek nincs UV-adata).
-- **Amit tudatosan nem pótolunk:** széllökés, csapadék-intenzitás (pillanatnyi ráta),
-  napsugárzás — ezekre a tartalék oldalon nincs valós alapadat, a szenzor „nem elérhető" marad
-  (egy hiányzó érték jobb, mint egy kitalált szám).
+  (iránytű-szektor középértéke, ±11,25° becslés), hőérzet index (szabványos képlet). A
+  széllökés, csapadék-intenzitás, napsugárzás és UV-index pótlását lásd lent (M3b) – ezek
+  mostantól a forráskiválasztástól függetlenül is pótolhatók, nem csak itt.
 
 ### Levegőminőség, pollen és UV (opcionális, `M3`)
 
@@ -114,6 +116,21 @@ hogy ne terheljék feleslegesen a frissítést és az entitáslistát).
   fajspecifikus, hivatalos küszöbértékeit használjuk. **Az olajfa pollenre tudatosan nincs
   kategória** (csak nyers érték): nem találtunk rá egyetlen, megbízhatóan hivatkozható európai
   skálát sem – egy hiányzó kategória jobb, mint egy kitalált.
+
+### Napsugárzás-kiegészítő és hiányzó adatok pótlása (`M3b`, mindig aktív)
+
+Egy új, **mindig aktív** (nem kapcsolható ki), kulcs nélküli Open-Meteo lekérés – független attól,
+melyik `forecast_source` van beállítva – pótolja a hiányzó mérési mezőket, és egy új szenzort ad:
+
+- **`sunshine_duration` (Napfénytartam, ma):** a mai nap eddigi/becsült teljes napfénytartama
+  percben.
+- **Pótlás, csak ha a saját mérés valóban hiányzik** (sosem írja felül a valódi értéket):
+  **széllökés**, **csapadék-intenzitás**, **napsugárzás**, **UV-index**. Mindegyik szenzoron
+  az `estimated` attribútum jelzi, ha az érték ebből a forrásból lett pótolva.
+- Ez **megszünteti a korábbi UV-korlátot**: az UV-pótlás eddig csak akkor működött, ha az
+  Open-Meteo volt a tényleges előrejelzés-forrás (a MET Norway-nek nincs UV-adata) – ez a
+  lekérés attól függetlenül mindig fut.
+- Ugyanazt az Open-Meteo forrást használja, mint az előrejelzés (nincs új forrásmegjelölés).
 
 ## Adatforrások
 
@@ -150,6 +167,7 @@ A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
 | `wu_api_calls_today`, `forecast_updated`, `forecast_source` | – | diagnosztika |
 | `forecast_mae_*` | °C | előrejelzés-hiba forrásonként (blend módban; alapból kikapcsolt) |
 | `uv_level` | enum | WHO UV-kategória (alacsony…extrém) |
+| `sunshine_duration` | perc | napfénytartam, ma (M3b, mindig aktív) |
 | `european_aqi`, `us_aqi` | – | AQI, `level` attribútummal (opcionális, alapból kikapcsolt) |
 | `pm2_5`, `pm10`, `nitrogen_dioxide`, `sulphur_dioxide`, `ozone`, `carbon_monoxide` | µg/m³ | opcionális, alapból kikapcsolt |
 | `pollen_alder`, `pollen_birch`, `pollen_grass`, `pollen_mugwort`, `pollen_olive`, `pollen_ragweed` | grains/m³ | opcionális, alapból kikapcsolt; `level` attribútum (az olajfa kivételével) |
@@ -158,7 +176,7 @@ A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
 | `weather` | – | aktuális állapot + napi előrejelzés |
 
 ## Kaposvár és Magyarország
-Az integráció alapértelmezései a készítő otthonára, **Kaposvárra** vannak hangolva: a beállítás az `IKAPOS27` állomást és a
+Az integráció alapértelmezései **Kaposvárra** vannak hangolva (fejlesztési/teszt referenciaként): a beállítás az `IKAPOS27` állomást és a
 `Kaposvár` előrejelzési várost javasolja (a mezők átírhatók). A város geokódolása egyszer fut le és tartósan tárolódik;
 valós adatokkal ellenőrizve Kaposvár a (46.3667, 17.8) koordinátára oldódik fel, és az Open-Meteo (automatikus, ECMWF IFS,
 ICON-EU) valamint a MET Norway előrejelzés is hibátlanul feldolgozható rá. Más magyar városnál ugyanígy működik

@@ -266,6 +266,9 @@
       },
       "pollen_ragweed": {
         "name": "Parlagfű pollen"
+      },
+      "sunshine_duration": {
+        "name": "Napfénytartam (ma)"
       }
     },
     "binary_sensor": {

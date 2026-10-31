@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integration
 
-**Author: Aiasz · Version 1.7.0 · [Magyar README](README.md)**
+**Author: Aiasz · Version 1.7.1 · [Magyar README](README.md)**
 
 Shows the data of any [Weather Underground](https://www.wunderground.com/) personal weather station (PWS)
 in Home Assistant through the **official WU API**, in metric units, and adds a **multi-provider forecast**
@@ -32,6 +32,10 @@ in Home Assistant through the **official WU API**, in metric units, and adds a *
   UV index (low…extreme), plus a sensor that is `on` when protection is recommended - on by default.
 - **Air quality and pollen (optional)**: European and US AQI, 6 pollutants, 6 pollen species
   (including ragweed) from Open-Meteo, no key needed - see below.
+- **Sunshine-duration (today) sensor**, and automatic filling of missing measurements (wind
+  gust, precipitation rate, solar radiation, UV) from an always-on, key-less Open-Meteo
+  supplement whenever your own measurement doesn't have them - transparently flagged
+  (`estimated` attribute) - see below.
 
 ## Installation
 
@@ -78,11 +82,9 @@ which only fills in after JavaScript runs and therefore cannot be used here).
 - It scrapes an undocumented, unofficial page; if WU redesigns it this source can stop working (the integration
   degrades gracefully when that happens, it does not crash).
 - **Filled in from real data:** coordinates (from the city's geocoding), wind bearing in degrees
-  (compass-sector centre, a disclosed +-11.25 deg estimate), heat index (standard formula), UV
-  index (from the forecast - only when Open-Meteo is the active source; MET Norway has no UV data).
-- **Deliberately not filled in:** wind gust, precipitation rate, solar radiation - there is no
-  real underlying data for these on the fallback page, so the sensor stays "unavailable" (a
-  missing value is better than a fabricated number).
+  (compass-sector centre, a disclosed +-11.25 deg estimate), heat index (standard formula). Wind
+  gust, precipitation rate, solar radiation and UV are filled in too - see "Solar supplement"
+  below, which works regardless of which source this is, not just here.
 
 ### Air quality, pollen and UV (optional, `M3`)
 
@@ -104,6 +106,20 @@ or clutter the entity list).
   **Olive deliberately has no category** (raw value only): no single, confidently citable
   European scale was found for it - a missing category is better than a fabricated one.
 
+### Solar supplement and filling in missing data (`M3b`, always on)
+
+A new, **always-on** (cannot be turned off), key-less Open-Meteo request - independent of
+whichever `forecast_source` is configured - fills in missing measurement fields and adds one
+new sensor:
+
+- **`sunshine_duration` (today):** today's total (so-far/forecast) sunshine duration, in minutes.
+- **Fills in a field only when your own measurement is genuinely missing it** (never overrides
+  a real value): **wind gust**, **precipitation rate**, **solar radiation**, **UV index**. Each
+  affected sensor exposes an `estimated` attribute whenever its value came from here.
+- This **removes the earlier UV limitation**: the UV fill used to only work when Open-Meteo was
+  the actual forecast source (MET Norway has no UV data) - this request always runs regardless.
+- Uses the same Open-Meteo source as the forecast (no new attribution needed).
+
 ## Data sources
 
 | Data | Source | Key |
@@ -118,7 +134,7 @@ or clutter the entity list).
 Required attributions: see [CREDITS](CREDITS.md). Hourly data comes from Open-Meteo or MET Norway (the WU PWS API has no hourly forecast). The `forecast_source_used` attribute shows which source answered.
 
 ## Kaposvár and Hungary
-The defaults are tuned to the author's home town, **Kaposvár**: the setup form suggests station `IKAPOS27` and forecast city
+The defaults are tuned to **Kaposvár** (used as the development/test reference): the setup form suggests station `IKAPOS27` and forecast city
 `Kaposvár` (both editable). The geocoding runs once and is cached; verified against live data, Kaposvár resolves to
 (46.3667, 17.8) and both Open-Meteo (automatic, ECMWF IFS, ICON-EU) and MET Norway forecasts parse correctly for it.
 Other Hungarian towns work the same way; official HungaroMet data is planned for v1.8.

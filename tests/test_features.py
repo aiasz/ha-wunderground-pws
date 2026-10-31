@@ -243,7 +243,7 @@ async def test_circuit_breaker_stops_hammering_a_dead_source(hass, aioclient_moc
     assert METNO_FORECAST_URL not in str(aioclient_mock.mock_calls)  # chain was open-meteo only
 
 
-# --- Kaposvár (the author's home town) --------------------------------------------------------------
+# --- Kaposvár (development/test reference city) --------------------------------------------------------------
 
 
 async def test_kaposvar_forecast_uses_the_geocoded_town_not_a_default(

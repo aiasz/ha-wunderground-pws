@@ -63,13 +63,16 @@ from .const import (
     ATTR_OBSERVATION_SOURCE,
     ATTR_PRECIPITATION,
     ATTR_PRECIPITATION_RATE,
+    ATTR_PRECIPITATION_RATE_ESTIMATED,
     ATTR_PRESSURE,
     ATTR_PRESSURE_CHANGE_3H,
     ATTR_PRESSURE_TENDENCY,
     ATTR_SOLAR_RADIATION,
+    ATTR_SOLAR_RADIATION_ESTIMATED,
     ATTR_SOURCE_STATION_ID,
     ATTR_STATION_ID,
     ATTR_STATION_ONLINE,
+    ATTR_SUNSHINE_DURATION,
     ATTR_TEMP_MAX_TODAY,
     ATTR_TEMP_MIN_TODAY,
     ATTR_TEMPERATURE,
@@ -82,6 +85,7 @@ from .const import (
     ATTR_WIND_COMPASS_HU,
     ATTR_WIND_COMPASS_SLUG,
     ATTR_WIND_GUST,
+    ATTR_WIND_GUST_ESTIMATED,
     ATTR_WIND_SPEED,
     ATTR_WU_CALLS_TODAY,
     CONF_API_KEY,
@@ -113,6 +117,7 @@ from .state import StateStore
 if TYPE_CHECKING:
     from .air_quality_coordinator import AirQualityCoordinator
     from .forecast import ForecastCoordinator
+    from .solar_coordinator import SolarCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -152,6 +157,8 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.forecast: ForecastCoordinator | None = None
         # Set by ``async_setup_entry`` only when the air-quality/pollen option is on (M3).
         self.air_quality: AirQualityCoordinator | None = None
+        # Set by ``async_setup_entry`` right after the forecast - always on (M3b).
+        self.solar: SolarCoordinator | None = None
 
         # Demo-mode (key discovery) state
         self._key_attempts: int = 0
@@ -190,6 +197,12 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.air_quality.async_refresh_if_due(),
                 name=f"{DOMAIN} air quality refresh",
             )
+        if self.solar is not None:
+            self.config_entry.async_create_background_task(
+                self.hass,
+                self.solar.async_refresh_if_due(),
+                name=f"{DOMAIN} solar refresh",
+            )
         return data
 
     def _update_station_state(self, data: dict[str, Any]) -> None:
@@ -222,19 +235,20 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def async_recompute_condition(self) -> None:
-        """Re-derive values that depend on the forecast coordinator's own data.
+        """Re-derive values that depend on the forecast/solar coordinators' own data.
 
-        Registered as a listener on the forecast coordinator (see
-        :mod:`.__init__`), so this runs *after* ``forecast.data`` has actually
-        been updated by the base coordinator class - calling it eagerly from
-        inside the forecast's own ``_async_update_data`` would read the
-        still-stale previous forecast. Covers:
+        Registered as a listener on both (see :mod:`.__init__`), so this runs
+        *after* their data has actually been updated by the base coordinator
+        class - calling it eagerly from inside their own ``_async_update_data``
+        would read stale data. Covers:
 
         * the current condition (night-time / no-solar-sensor sky state, F15),
-        * the UV index estimate (F09) - only the forecast's first refresh, which
-          typically completes moments after the observation's own first
-          refresh, can supply this; without this recompute it would stay
-          "unavailable" until the next full ``scan_interval`` elapses.
+        * gap-filling from the solar supplement (M3b) - wind gust, precipitation
+          rate, solar radiation, sunshine duration, UV index (plus the forecast
+          UV estimate as a second-best fallback). Needed because the very first
+          refresh of these coordinators typically completes moments after the
+          observation's own first refresh; without this recompute the affected
+          sensors would stay "unavailable" until the next full ``scan_interval``.
         """
         if not self.data:
             return
@@ -245,8 +259,28 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.data[ATTR_CONDITION] = condition
             changed = True
 
+        solar_data = self.solar.data if self.solar is not None else {}
+        for attr, estimated_attr in (
+            (ATTR_WIND_GUST, ATTR_WIND_GUST_ESTIMATED),
+            (ATTR_PRECIPITATION_RATE, ATTR_PRECIPITATION_RATE_ESTIMATED),
+            (ATTR_SOLAR_RADIATION, ATTR_SOLAR_RADIATION_ESTIMATED),
+        ):
+            if self.data.get(estimated_attr) or self.data.get(attr) is None:
+                value = solar_data.get(attr)
+                if value is not None and value != self.data.get(attr):
+                    self.data[attr] = value
+                    self.data[estimated_attr] = True
+                    changed = True
+
+        sunshine = solar_data.get(ATTR_SUNSHINE_DURATION)
+        if sunshine != self.data.get(ATTR_SUNSHINE_DURATION):
+            self.data[ATTR_SUNSHINE_DURATION] = sunshine
+            changed = True
+
         if self.data.get(ATTR_UV_ESTIMATED) or self.data.get(ATTR_UV_INDEX) is None:
-            uv = self._forecast_uv_estimate()
+            uv = solar_data.get(ATTR_UV_INDEX)
+            if uv is None:
+                uv = self._forecast_uv_estimate()
             if uv is not None and uv != self.data.get(ATTR_UV_INDEX):
                 self.data[ATTR_UV_INDEX] = uv
                 self.data[ATTR_UV_ESTIMATED] = True
@@ -415,13 +449,41 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             limit = max(OBS_MIN_STALE_MINUTES, OBS_STALE_FACTOR * self.scan_interval)
             online = age_min <= limit
 
+        # M3b: fill real gaps (never override a real measurement) from the
+        # always-on Open-Meteo current-conditions supplement, independent of
+        # forecast_source. Each filled field is disclosed via its own
+        # ``*_estimated`` flag (D7 - never silently blend without disclosure).
+        solar_data = self.solar.data if self.solar is not None else {}
+
+        wind_gust = obs.get("wind_gust")
+        wind_gust_estimated = False
+        if wind_gust is None:
+            wind_gust = solar_data.get(ATTR_WIND_GUST)
+            wind_gust_estimated = wind_gust is not None
+
+        precipitation_rate = obs.get("precipitation_rate")
+        precipitation_rate_estimated = False
+        if precipitation_rate is None:
+            precipitation_rate = solar_data.get(ATTR_PRECIPITATION_RATE)
+            precipitation_rate_estimated = precipitation_rate is not None
+
+        solar_radiation = obs.get("solar_radiation")
+        solar_radiation_estimated = False
+        if solar_radiation is None:
+            solar_radiation = solar_data.get(ATTR_SOLAR_RADIATION)
+            solar_radiation_estimated = solar_radiation is not None
+
         uv = obs.get("uv")
         uv_estimated = False
         if uv is None:
             # No measured UV (common for the city-page fallback, and possible for
-            # a PWS without a UV sensor): use today's forecast UV max instead of
-            # leaving the sensor permanently unavailable, clearly flagged as such.
-            uv = self._forecast_uv_estimate()
+            # a PWS without a UV sensor): the Open-Meteo supplement first (works
+            # regardless of forecast_source), then today's forecast UV max as a
+            # second-best estimate if the supplement itself is unavailable -
+            # never leave the sensor permanently unavailable for no reason.
+            uv = solar_data.get(ATTR_UV_INDEX)
+            if uv is None:
+                uv = self._forecast_uv_estimate()
             uv_estimated = uv is not None
 
         data: dict[str, Any] = {
@@ -439,14 +501,18 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ATTR_HUMIDITY: obs.get("humidity"),
             ATTR_PRESSURE: obs.get("pressure"),
             ATTR_WIND_SPEED: obs.get("wind_speed"),
-            ATTR_WIND_GUST: obs.get("wind_gust"),
+            ATTR_WIND_GUST: wind_gust,
+            ATTR_WIND_GUST_ESTIMATED: wind_gust_estimated,
             ATTR_WIND_BEARING: obs.get("wind_dir_deg"),
             ATTR_WIND_COMPASS: obs.get("wind_dir_compass"),
             ATTR_WIND_COMPASS_SLUG: obs.get("wind_dir_slug"),
             ATTR_WIND_COMPASS_HU: obs.get("wind_dir_compass_hu"),
             ATTR_PRECIPITATION: obs.get("precipitation"),
-            ATTR_PRECIPITATION_RATE: obs.get("precipitation_rate"),
-            ATTR_SOLAR_RADIATION: obs.get("solar_radiation"),
+            ATTR_PRECIPITATION_RATE: precipitation_rate,
+            ATTR_PRECIPITATION_RATE_ESTIMATED: precipitation_rate_estimated,
+            ATTR_SOLAR_RADIATION: solar_radiation,
+            ATTR_SOLAR_RADIATION_ESTIMATED: solar_radiation_estimated,
+            ATTR_SUNSHINE_DURATION: solar_data.get(ATTR_SUNSHINE_DURATION),
             ATTR_UV_INDEX: uv,
             ATTR_UV_ESTIMATED: uv_estimated,
             ATTR_CLOUD_BASE: obs.get("cloud_base"),

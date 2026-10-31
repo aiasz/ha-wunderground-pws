@@ -6,6 +6,26 @@ Minden lényeges változás ebben a fájlban szerepel. A formátum a
 
 A `B##` / `F##` / `M#` / `S#` azonosítók a fejlesztési terv (`PLAN.md`) tételeire hivatkoznak.
 
+## [1.7.1] – 2026-10-31
+
+### Hozzáadva
+- **Napfénytartam (ma) szenzor (`sunshine_duration`)** és **hiányzó mezők pótlása (`M3b`)**:
+  új, **mindig aktív** (nem kapcsolható ki), kulcs nélküli Open-Meteo lekérés — a jelenlegi
+  előrejelzés-forrástól (`forecast_source`) függetlenül — amely pótolja a **széllökés**,
+  **csapadék-intenzitás**, **napsugárzás** és **UV-index** mezőket, ha a saját mérés (WU API
+  vagy a kulcs nélküli városi tartalék, F09) valóban nem adja meg őket. Sosem írja felül a
+  valódi mérést; minden pótolt értéket az érintett szenzor `estimated` attribútuma jelez.
+  Ez **megszünteti az 1.7.0-ban dokumentált UV-korlátot** (addig az UV-pótlás csak akkor
+  működött, ha az Open-Meteo volt a tényleges előrejelzés-forrás).
+
+### Módosítva
+- Az UV-index szenzor `estimated_from_forecast` attribútuma átnevezve `estimated`-re, és
+  ugyanez az attribútum mostantól a széllökés/csapadék-intenzitás/napsugárzás szenzorokon is
+  megjelenik, amikor pótolt értéket mutatnak (konzisztens elnevezés mind a négy mezőn).
+- A dokumentációból eltávolítva a Kaposvár "a készítő otthona" megfogalmazás (fejlesztési/teszt
+  referenciaként szerepel továbbra is, személyes adat hangoztatása nélkül).
+- 15 új teszt (271 összesen), ruff clean.
+
 ## [1.7.0] – 2026-10-31
 
 **Sürgős javítás**, élő Home Assistant tesztpéldányban megerősítve: a beállítás saját API kulcs
@@ -123,7 +143,7 @@ amit egy látogató a böngészőjében „Oldal forráskódja" nézetben lát. 
   növekvő, szórt várakozással; 3 egymás utáni hiba után a forrást 10 percre kihagyja.
 
 ### Módosítva
-- **Kaposvár (a készítő otthona) kiemelten támogatott:** a beállító űrlap az `IKAPOS27` állomást és a `Kaposvár` várost javasolja; a város geokódolása (46.3667, 17.8) valós adatokkal ellenőrizve, és minden forrás (WU, MET Norway, Open-Meteo) ezekkel a koordinátákkal kérdez.
+- **Kaposvár fejlesztési/teszt referenciaként kiemelten támogatott:** a beállító űrlap az `IKAPOS27` állomást és a `Kaposvár` várost javasolja; a város geokódolása (46.3667, 17.8) valós adatokkal ellenőrizve, és minden forrás (WU, MET Norway, Open-Meteo) ezekkel a koordinátákkal kérdez.
 - A **mai előrejelzés tartománya nem lehet szűkebb**, mint amit az állomás már mért (a MET Norway csak a nap hátralévő óráit adja).
 - Az előrejelzés **saját koordinátorba** került (S1): lassú vagy hibás forrás sosem lassítja a méréseket,
   és a beállítás sem hiúsul meg miatta. A megfigyelés frissítése háttérfeladatként indítja.
