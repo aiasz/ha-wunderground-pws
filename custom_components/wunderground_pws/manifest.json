@@ -1,12 +1,12 @@
 {
   "domain": "wunderground_pws",
   "name": "Wunderground PWS",
-  "version": "1.6.0",
+  "codeowners": ["@aiasz"],
+  "config_flow": true,
   "documentation": "https://github.com/aiasz/ha-wunderground-pws",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/aiasz/ha-wunderground-pws/issues",
   "requirements": [],
-  "config_flow": true,
-  "codeowners": ["@aiasz"],
-  "iot_class": "cloud_polling",
-  "integration_type": "hub"
+  "version": "1.6.0"
 }
