@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integráció
 
-**Készítő: Aiasz · Verzió: 1.6.2 · [English README](README.en.md)**
+**Készítő: Aiasz · Verzió: 1.7.0 · [English README](README.en.md)**
 
 Bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait
 megjeleníti a Home Assistantban – az **official WU API**-n keresztül, metrikus egységekkel – és mellé
@@ -31,6 +31,10 @@ tartalék-lánccal. Magyar és angol nyelven használható.
 - **Megfigyelés-tartalék kulcs nélkül**: ha a WU API nem elérhető és be van állítva egy előrejelzési
   város, az integráció a WU nyilvános, bejelentkezés nélküli városi oldaláról olvassa ki a legközelebbi
   állomás mérését – átlátszóan jelölve (`observation_source`, `fallback_source_station`).
+- **UV-szint (WHO kategória) és UV-védelem riasztás**: az UV-indexből számolt kategória
+  (alacsony…extrém) és egy bináris szenzor, amely jelzi, ha védelem ajánlott – alapból bekapcsolva.
+- **Levegőminőség és pollen (opcionális)**: európai és amerikai AQI, 6 szennyezőanyag, 6 pollenfaj
+  (köztük a parlagfű) az Open-Meteóból, kulcs nélkül – lásd lent.
 - **Beállítások újraindítás nélkül** módosíthatók (Configure).
 
 ## Telepítés
@@ -90,6 +94,27 @@ oldal, amely csak JavaScript-tel töltődik fel, és amelyet ezért az integrác
   napsugárzás — ezekre a tartalék oldalon nincs valós alapadat, a szenzor „nem elérhető" marad
   (egy hiányzó érték jobb, mint egy kitalált szám).
 
+### Levegőminőség, pollen és UV (opcionális, `M3`)
+
+A `#1` hibajegyben kért funkció: légszennyezettség, pollen és UV-kockázat egy ingyenes,
+kulcs nélküli forrásból (Open-Meteo Air Quality API, CAMS Europe/Global modellek, CC BY 4.0).
+
+**Alapértelmezetten kikapcsolva** (plusz API-hívás frissítésenként) – bekapcsolás a bejegyzés
+**Configure** menüjében (*„Levegőminőség- és pollenszenzorok"*). Bekapcsolás után a 14 új
+szenzor megjelenik az entitáslistában, de – az előrejelzés-pontosság szenzorokhoz hasonlóan –
+**egyenként is engedélyezni kell** őket (niche, diagnosztikai jellegű adatok, alapból kikapcsolva,
+hogy ne terheljék feleslegesen a frissítést és az entitáslistát).
+
+- **Légszennyezettség-index:** európai (EEA) és amerikai (US EPA) AQI, saját hivatalos
+  sávbeosztással (`level` attribútum).
+- **Szennyezőanyagok:** PM2.5, PM10, nitrogén-dioxid, kén-dioxid, ózon, szén-monoxid (µg/m³).
+- **Pollen (6 faj):** éger, nyír, fűfélék, üröm, olajfa, **parlagfű** – ez utóbbi Magyarország
+  legjelentősebb késő-nyári allergénje, a funkció fő motivációja. A terhelési kategóriákhoz
+  (alacsony/közepes/magas/nagyon magas) a svájci meteorológiai szolgálat (MeteoSwiss)
+  fajspecifikus, hivatalos küszöbértékeit használjuk. **Az olajfa pollenre tudatosan nincs
+  kategória** (csak nyers érték): nem találtunk rá egyetlen, megbízhatóan hivatkozható európai
+  skálát sem – egy hiányzó kategória jobb, mint egy kitalált.
+
 ## Adatforrások
 
 | Adat | Forrás | Kulcs |
@@ -99,6 +124,7 @@ oldal, amely csak JavaScript-tel töltődik fel, és amelyet ezért az integrác
 | Előrejelzés | WU `v3/wx/forecast/daily/5day` (tartalék: `7day`) | igen |
 | Előrejelzés | MET Norway Locationforecast 2.0 (CC BY 4.0) | nem |
 | Előrejelzés, geokódolás | Open-Meteo (CC BY 4.0) | nem |
+| Levegőminőség, pollen (opcionális) | Open-Meteo Air Quality API, CAMS (CC BY 4.0) | nem |
 
 Az **óránkénti** adat Open-Meteóból, vagy MET Norway-ből jön (a WU PWS API-nak nincs óránkénti előrejelzése). Az `auto` mód az első sikeres forrást használja; melyiket, azt a `forecast_source_used` attribútum mutatja.
 A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
@@ -123,7 +149,12 @@ A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
 | `observation_age` | perc | diagnosztika |
 | `wu_api_calls_today`, `forecast_updated`, `forecast_source` | – | diagnosztika |
 | `forecast_mae_*` | °C | előrejelzés-hiba forrásonként (blend módban; alapból kikapcsolt) |
+| `uv_level` | enum | WHO UV-kategória (alacsony…extrém) |
+| `european_aqi`, `us_aqi` | – | AQI, `level` attribútummal (opcionális, alapból kikapcsolt) |
+| `pm2_5`, `pm10`, `nitrogen_dioxide`, `sulphur_dioxide`, `ozone`, `carbon_monoxide` | µg/m³ | opcionális, alapból kikapcsolt |
+| `pollen_alder`, `pollen_birch`, `pollen_grass`, `pollen_mugwort`, `pollen_olive`, `pollen_ragweed` | grains/m³ | opcionális, alapból kikapcsolt; `level` attribútum (az olajfa kivételével) |
 | `station_online` | be/ki | diagnosztika: friss-e az utolsó mérés |
+| `uv_protection_needed` | be/ki | UV-index ≥ 3 (WHO ajánlás) |
 | `weather` | – | aktuális állapot + napi előrejelzés |
 
 ## Kaposvár és Magyarország

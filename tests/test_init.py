@@ -86,6 +86,17 @@ async def test_setup_keeps_all_legacy_unique_ids_and_values(hass, aioclient_mock
     assert _state(hass, "weather", f"{STATION}_weather").state == "cloudy"
 
 
+async def test_uv_level_and_protection_from_measured_uv(hass, aioclient_mock, freezer) -> None:
+    """F16: UV index 1.0 (fixture) -> WHO "low" category, below the protection threshold."""
+    freezer.move_to(NOW)
+    mock_apis(aioclient_mock)
+    entry = make_entry()
+    await _setup(hass, entry)
+
+    assert _state(hass, "sensor", f"{STATION}_uv_level").state == "low"
+    assert _state(hass, "binary_sensor", f"{STATION}_uv_protection_needed").state == "off"
+
+
 async def test_forecast_comes_from_wunderground_first(hass, aioclient_mock, freezer) -> None:
     freezer.move_to(NOW)
     mock_apis(aioclient_mock)

@@ -6,7 +6,7 @@ Minden lényeges változás ebben a fájlban szerepel. A formátum a
 
 A `B##` / `F##` / `M#` / `S#` azonosítók a fejlesztési terv (`PLAN.md`) tételeire hivatkoznak.
 
-## [1.6.2] – 2026-10-31
+## [1.7.0] – 2026-10-31
 
 **Sürgős javítás**, élő Home Assistant tesztpéldányban megerősítve: a beállítás saját API kulcs
 nélkül teljesen elakadt, és a kulcs nélküli tartalék forrásnál (1.6.1) több adat is hiányzott.
@@ -41,6 +41,31 @@ nincs semmilyen valós alapadat. **Ismert korlát:** az UV-pótlás csak akkor m
 Open-Meteo a ténylegesen használt előrejelzés-forrás; ha a MET Norway válaszol előbb (ennek
 API-ja nem ad UV-adatot), az UV-index is „nem elérhető" marad. Ez szándékos: egy hiányzó
 érték jobb, mint egy kitalált szám.
+
+### Hozzáadva (levegőminőség, pollen, UV — `M3`, opcionális)
+A `#1` hibajegyben kért funkció: légszennyezettség, pollen és UV-kockázat, ingyenes,
+kulcs nélküli forrásból (Open-Meteo Air Quality API, CAMS Europe/Global modellek, CC BY 4.0).
+**Alapértelmezetten kikapcsolva** (plusz API-hívás/frissítés) — bekapcsolás a bejegyzés
+**beállításaiban** (`Levegőminőség- és pollenszenzorok`); minden egyes szenzor emellett
+egyenként is engedélyezendő az entitás-listában (ugyanaz a minta, mint az előrejelzés
+pontosság-szenzoroknál) — ezek niche, diagnosztikai jellegű adatok.
+- **Légszennyezettség-index:** európai (EEA) és amerikai (US EPA) AQI, mindkettő a saját
+  hivatalos sávbeosztásával (`level` attribútum: jó/közepes/rossz stb.).
+- **Szennyezőanyagok:** PM2.5, PM10, nitrogén-dioxid, kén-dioxid, ózon, szén-monoxid (µg/m³).
+- **Pollen (6 faj):** éger, nyír, fűfélék, üröm, olajfa, **parlagfű** — Magyarország
+  legjelentősebb késő-nyári allergénje, ez a funkció fő motivációja. A terhelési
+  kategóriákhoz (alacsony/közepes/magas/nagyon magas) a svájci meteorológiai szolgálat
+  (MeteoSwiss) fajspecifikus, hivatalos küszöbértékeit használjuk — ez volt az egyetlen
+  olyan egységes, forrásként megnevezhető táblázat, amit találtunk. **Az olajfa pollenre
+  tudatosan nincs kategória** (csak nyers érték): nem találtunk egyetlen, megbízhatóan
+  hivatkozható európai skálát rá (a spanyol/portugál regionális tanulmányok 4-10x-es
+  eltéréssel adnak eltérő küszöböket) — egy hiányzó kategória jobb, mint egy kitalált.
+- **UV-szint (WHO kategória):** a meglévő UV-index (`uv_index`) WHO "Global Solar UV Index"
+  kategóriája (alacsony/közepes/magas/nagyon magas/extrém) — új szenzor, **alapértelmezetten
+  bekapcsolva**, nem az opcionális levegőminőség-funkció része.
+- **UV-védelem szükséges (bináris szenzor):** `on`, ha az UV-index eléri a WHO által
+  ajánlott védelmi küszöböt (3) — **alapértelmezetten bekapcsolva**.
+- 25 új teszt (253 összesen), ruff clean.
 
 ## [1.6.1] – 2026-10-31
 

@@ -38,18 +38,37 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .calculations import COMPASS_SLUGS
+from .air_quality_coordinator import AirQualityCoordinator
+from .calculations import (
+    COMPASS_SLUGS,
+    european_aqi_level,
+    pollen_level,
+    us_aqi_level,
+    who_uv_level,
+)
 from .const import (
     ATTR_ABSOLUTE_HUMIDITY,
+    ATTR_CARBON_MONOXIDE,
     ATTR_CLOUD_BASE,
     ATTR_DEW_POINT,
+    ATTR_EUROPEAN_AQI,
     ATTR_FEELS_LIKE,
     ATTR_GUST_MAX_TODAY,
     ATTR_HEAT_INDEX,
     ATTR_HUMIDITY,
     ATTR_LAST_UPDATED,
+    ATTR_NITROGEN_DIOXIDE,
     ATTR_OBS_AGE_MIN,
     ATTR_OBSERVATION_SOURCE,
+    ATTR_OZONE,
+    ATTR_PM2_5,
+    ATTR_PM10,
+    ATTR_POLLEN_ALDER,
+    ATTR_POLLEN_BIRCH,
+    ATTR_POLLEN_GRASS,
+    ATTR_POLLEN_MUGWORT,
+    ATTR_POLLEN_OLIVE,
+    ATTR_POLLEN_RAGWEED,
     ATTR_PRECIPITATION,
     ATTR_PRECIPITATION_RATE,
     ATTR_PRESSURE,
@@ -58,9 +77,11 @@ from .const import (
     ATTR_SOLAR_RADIATION,
     ATTR_SOURCE_STATION_ID,
     ATTR_STATION_ID,
+    ATTR_SULPHUR_DIOXIDE,
     ATTR_TEMP_MAX_TODAY,
     ATTR_TEMP_MIN_TODAY,
     ATTR_TEMPERATURE,
+    ATTR_US_AQI,
     ATTR_UV_ESTIMATED,
     ATTR_UV_INDEX,
     ATTR_WET_BULB,
@@ -75,7 +96,9 @@ from .const import (
     FORECAST_AUTO_ORDER,
     FORECAST_SOURCE_BLEND,
     OBSERVATION_SOURCES,
+    POLLEN_SPECIES_WITH_LEVELS,
     PRESSURE_TENDENCIES,
+    UV_LEVELS,
 )
 from .coordinator import WundergroundConfigEntry
 from .entity import WundergroundPWSEntity, build_device_info
@@ -282,6 +305,15 @@ SENSOR_DESCRIPTIONS: tuple[WundergroundSensorEntityDescription, ...] = (
     ),
 )
 
+# WHO Global Solar UV Index category of the current uv_index value (F16).
+UV_LEVEL_DESCRIPTION = SensorEntityDescription(
+    key="uv_level",
+    translation_key="uv_level",
+    device_class=SensorDeviceClass.ENUM,
+    options=UV_LEVELS,
+    icon="mdi:sun-wireless",
+)
+
 
 @dataclass(frozen=True, kw_only=True)
 class ForecastSensorEntityDescription(SensorEntityDescription):
@@ -325,6 +357,76 @@ FORECAST_SENSOR_DESCRIPTIONS: tuple[ForecastSensorEntityDescription, ...] = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class AirQualitySensorEntityDescription(SensorEntityDescription):
+    """A sensor whose value comes from the air-quality coordinator (M3, opt-in)."""
+
+    data_key: str
+    level_fn: Callable[[Any], str | None] | None = None
+
+
+def _pollutant(key: str, data_key: str, device_class: SensorDeviceClass | None, **kwargs: Any):
+    """Helper: a µg/m3 air-pollutant sensor, off by default (opt-in feature)."""
+    return AirQualitySensorEntityDescription(
+        key=key,
+        data_key=data_key,
+        translation_key=key,
+        native_unit_of_measurement="µg/m³",
+        device_class=device_class,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=False,
+        **kwargs,
+    )
+
+
+def _pollen(species: str) -> AirQualitySensorEntityDescription:
+    """Helper: one pollen species sensor (grains/m3), off by default."""
+    return AirQualitySensorEntityDescription(
+        key=species,
+        data_key=species,
+        translation_key=species,
+        native_unit_of_measurement="grains/m³",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=False,
+        icon="mdi:flower-pollen",
+        level_fn=(lambda v, s=species: pollen_level(s, v)) if species in POLLEN_SPECIES_WITH_LEVELS else None,
+    )  # fmt: skip
+
+
+AIR_QUALITY_SENSOR_DESCRIPTIONS: tuple[AirQualitySensorEntityDescription, ...] = (
+    AirQualitySensorEntityDescription(
+        key="european_aqi",
+        data_key=ATTR_EUROPEAN_AQI,
+        translation_key="european_aqi",
+        device_class=SensorDeviceClass.AQI,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=False,
+        level_fn=european_aqi_level,
+    ),
+    AirQualitySensorEntityDescription(
+        key="us_aqi",
+        data_key=ATTR_US_AQI,
+        translation_key="us_aqi",
+        device_class=SensorDeviceClass.AQI,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=False,
+        level_fn=us_aqi_level,
+    ),
+    _pollutant("pm2_5", ATTR_PM2_5, SensorDeviceClass.PM25),
+    _pollutant("pm10", ATTR_PM10, SensorDeviceClass.PM10),
+    _pollutant("nitrogen_dioxide", ATTR_NITROGEN_DIOXIDE, SensorDeviceClass.NITROGEN_DIOXIDE),
+    _pollutant("sulphur_dioxide", ATTR_SULPHUR_DIOXIDE, SensorDeviceClass.SULPHUR_DIOXIDE),
+    _pollutant("ozone", ATTR_OZONE, SensorDeviceClass.OZONE),
+    _pollutant("carbon_monoxide", ATTR_CARBON_MONOXIDE, None),
+    _pollen(ATTR_POLLEN_ALDER),
+    _pollen(ATTR_POLLEN_BIRCH),
+    _pollen(ATTR_POLLEN_GRASS),
+    _pollen(ATTR_POLLEN_MUGWORT),
+    _pollen(ATTR_POLLEN_OLIVE),  # no official level scale (D7) - raw value only
+    _pollen(ATTR_POLLEN_RAGWEED),  # Hungary's dominant allergen (parlagfű)
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: WundergroundConfigEntry,
@@ -334,12 +436,16 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     forecast = coordinator.forecast
     assert forecast is not None
-    async_add_entities(
-        [
-            *(WundergroundPWSSensor(coordinator, d) for d in SENSOR_DESCRIPTIONS),
-            *(WundergroundPWSForecastSensor(forecast, d) for d in FORECAST_SENSOR_DESCRIPTIONS),
+    entities: list[SensorEntity] = [
+        *(WundergroundPWSSensor(coordinator, d) for d in SENSOR_DESCRIPTIONS),
+        WundergroundPWSUvLevelSensor(coordinator),
+        *(WundergroundPWSForecastSensor(forecast, d) for d in FORECAST_SENSOR_DESCRIPTIONS),
+    ]
+    if coordinator.air_quality is not None:
+        entities += [
+            AirQualitySensor(coordinator.air_quality, d) for d in AIR_QUALITY_SENSOR_DESCRIPTIONS
         ]
-    )
+    async_add_entities(entities)
 
 
 class WundergroundPWSSensor(WundergroundPWSEntity, SensorEntity):
@@ -398,3 +504,51 @@ class WundergroundPWSForecastSensor(CoordinatorEntity[ForecastCoordinator], Sens
     def native_value(self) -> Any:
         """Return the value computed from the forecast coordinator."""
         return self.entity_description.value_fn(self.coordinator)
+
+
+class WundergroundPWSUvLevelSensor(WundergroundPWSEntity, SensorEntity):
+    """WHO Global Solar UV Index category of the current UV reading (F16)."""
+
+    entity_description = UV_LEVEL_DESCRIPTION
+
+    def __init__(self, coordinator) -> None:
+        """Initialise the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.station_id}_{UV_LEVEL_DESCRIPTION.key}"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the WHO category for the current UV index."""
+        if self.coordinator.data is None:
+            return None
+        return who_uv_level(self.coordinator.data.get(ATTR_UV_INDEX))
+
+
+class AirQualitySensor(CoordinatorEntity[AirQualityCoordinator], SensorEntity):
+    """One air-quality / pollen value from Open-Meteo (M3, opt-in)."""
+
+    _attr_has_entity_name = True
+    entity_description: AirQualitySensorEntityDescription
+
+    def __init__(
+        self, coordinator: AirQualityCoordinator, description: AirQualitySensorEntityDescription
+    ) -> None:
+        """Initialise the sensor."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        station_id = coordinator.forecast.observation.station_id
+        self._attr_unique_id = f"{station_id}_{description.key}"
+        self._attr_device_info = build_device_info(station_id)
+
+    @property
+    def native_value(self) -> Any:
+        """Return the raw value from the latest air-quality reading."""
+        return self.coordinator.data.get(self.entity_description.data_key)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Classified level (AQI category / pollen load class), where one is defined."""
+        if self.entity_description.level_fn is None:
+            return None
+        value = self.native_value
+        return {"level": self.entity_description.level_fn(value)} if value is not None else None

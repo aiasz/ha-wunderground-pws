@@ -1,7 +1,7 @@
-"""Binary sensor platform: station online / offline.
+"""Binary sensor platform: station online / offline, UV protection advice.
 
 Author: Aiasz
-Plan: PLAN.md F08 (data quality: stale-observation detection)
+Plan: PLAN.md F08 (data quality: stale-observation detection), F16 (UV protection)
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import ATTR_OBS_AGE_MIN, ATTR_STATION_ONLINE
+from .const import ATTR_OBS_AGE_MIN, ATTR_STATION_ONLINE, ATTR_UV_INDEX, UV_PROTECTION_THRESHOLD
 from .coordinator import WundergroundConfigEntry
 from .entity import WundergroundPWSEntity
 
@@ -28,6 +28,12 @@ STATION_ONLINE = BinarySensorEntityDescription(
     entity_category=EntityCategory.DIAGNOSTIC,
 )
 
+UV_PROTECTION = BinarySensorEntityDescription(
+    key="uv_protection_needed",
+    translation_key="uv_protection_needed",
+    icon="mdi:sunglasses",
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -35,7 +41,10 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the binary sensors."""
-    async_add_entities([WundergroundPWSStationOnline(entry.runtime_data)])
+    coordinator = entry.runtime_data
+    async_add_entities(
+        [WundergroundPWSStationOnline(coordinator), WundergroundPWSUvProtection(coordinator)]
+    )
 
 
 class WundergroundPWSStationOnline(WundergroundPWSEntity, BinarySensorEntity):
@@ -60,3 +69,22 @@ class WundergroundPWSStationOnline(WundergroundPWSEntity, BinarySensorEntity):
         """Age of the last observation in minutes."""
         data = self.coordinator.data or {}
         return {"observation_age_min": data.get(ATTR_OBS_AGE_MIN)}
+
+
+class WundergroundPWSUvProtection(WundergroundPWSEntity, BinarySensorEntity):
+    """``on`` when the current UV index is high enough that WHO recommends protection (F16)."""
+
+    entity_description = UV_PROTECTION
+
+    def __init__(self, coordinator) -> None:
+        """Initialise the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.station_id}_{UV_PROTECTION.key}"
+
+    @property
+    def is_on(self) -> bool | None:
+        """``True`` from UV index 3 upward (WHO recommendation); ``None`` if unknown."""
+        if self.coordinator.data is None:
+            return None
+        uv = self.coordinator.data.get(ATTR_UV_INDEX)
+        return uv >= UV_PROTECTION_THRESHOLD if uv is not None else None

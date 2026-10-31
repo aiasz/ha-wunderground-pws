@@ -174,7 +174,16 @@ class ForecastCoordinator(DataUpdateCoordinator[ForecastBundle]):
     # ------------------------------------------------------------------
 
     async def async_load_persisted(self) -> None:
-        """Restore the last good forecast so entities have data right after a restart."""
+        """Restore the last good forecast so entities have data right after a restart.
+
+        Also resolves ``coords`` right away (cheap: cached geocode or the station's own
+        lat/lon, no network call in the common case) - otherwise, when the restored
+        forecast is still within its TTL, a real refresh (the only place ``coords`` was
+        previously set) would not run for up to ``FORECAST_TTL``, leaving every other
+        coordinator that reuses ``coords`` (e.g. :class:`~.air_quality_coordinator.AirQualityCoordinator`)
+        with nothing to fetch for that long after every restart.
+        """
+        self._coords = await self._async_resolve_coords(async_get_clientsession(self.hass))
         stored = await self._bundle_store.async_load()
         if not stored or not stored.get("fetched_at"):
             return

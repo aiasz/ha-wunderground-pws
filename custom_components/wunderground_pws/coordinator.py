@@ -181,6 +181,15 @@ class WundergroundPWSCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.forecast.async_refresh_if_due(),
                 name=f"{DOMAIN} forecast refresh",
             )
+        if self.air_quality is not None:
+            # Same independence pattern; also covers the restart gap where the
+            # forecast's own coords are not restored by async_load_persisted()
+            # (only the forecast *data* is) - this nudge is what resolves them.
+            self.config_entry.async_create_background_task(
+                self.hass,
+                self.air_quality.async_refresh_if_due(),
+                name=f"{DOMAIN} air quality refresh",
+            )
         return data
 
     def _update_station_state(self, data: dict[str, Any]) -> None:

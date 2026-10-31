@@ -5,9 +5,14 @@ from __future__ import annotations
 import json
 import pathlib
 
-from custom_components.wunderground_pws.binary_sensor import STATION_ONLINE
+from custom_components.wunderground_pws.binary_sensor import STATION_ONLINE, UV_PROTECTION
 from custom_components.wunderground_pws.calculations import COMPASS_SLUGS
-from custom_components.wunderground_pws.sensor import SENSOR_DESCRIPTIONS
+from custom_components.wunderground_pws.const import UV_LEVELS
+from custom_components.wunderground_pws.sensor import (
+    AIR_QUALITY_SENSOR_DESCRIPTIONS,
+    SENSOR_DESCRIPTIONS,
+    UV_LEVEL_DESCRIPTION,
+)
 
 ROOT = pathlib.Path(__file__).parent.parent / "custom_components" / "wunderground_pws"
 
@@ -42,7 +47,11 @@ def test_every_entity_translation_key_is_translated() -> None:
         entity = _load(ROOT / "translations" / f"{lang}.json")["entity"]
         for description in SENSOR_DESCRIPTIONS:
             assert description.translation_key in entity["sensor"], (lang, description.key)
+        for description in AIR_QUALITY_SENSOR_DESCRIPTIONS:
+            assert description.translation_key in entity["sensor"], (lang, description.key)
+        assert UV_LEVEL_DESCRIPTION.translation_key in entity["sensor"]
         assert STATION_ONLINE.translation_key in entity["binary_sensor"]
+        assert UV_PROTECTION.translation_key in entity["binary_sensor"]
         assert "weather" in entity["weather"]
 
 
@@ -50,3 +59,15 @@ def test_compass_enum_states_are_translated() -> None:
     for lang in ("en", "hu"):
         sensor = _load(ROOT / "translations" / f"{lang}.json")["entity"]["sensor"]
         assert set(sensor["wind_compass"]["state"]) == set(COMPASS_SLUGS)
+
+
+def test_uv_level_enum_states_are_translated() -> None:
+    for lang in ("en", "hu"):
+        sensor = _load(ROOT / "translations" / f"{lang}.json")["entity"]["sensor"]
+        assert set(sensor["uv_level"]["state"]) == set(UV_LEVELS)
+
+
+def test_enable_air_quality_option_is_translated() -> None:
+    for lang in ("en", "hu"):
+        opt = _load(ROOT / "translations" / f"{lang}.json")["options"]["step"]["init"]["data"]
+        assert "enable_air_quality" in opt

@@ -44,6 +44,7 @@ from .const import (
     CONF_API_KEY,
     CONF_API_KEY_SOURCE,
     CONF_CITY,
+    CONF_ENABLE_AIR_QUALITY,
     CONF_FORECAST_SOURCE,
     CONF_OPENMETEO_MODEL,
     CONF_SCAN_INTERVAL,
@@ -369,6 +370,9 @@ class WundergroundPWSOptionsFlow(OptionsFlow):
                         CONF_OPENMETEO_MODEL: user_input.get(
                             CONF_OPENMETEO_MODEL, DEFAULT_OPENMETEO_MODEL
                         ),
+                        CONF_ENABLE_AIR_QUALITY: user_input.get(
+                            CONF_ENABLE_AIR_QUALITY, DEFAULT_ENABLE_AIR_QUALITY
+                        ),
                     },
                 )
 
@@ -388,6 +392,10 @@ class WundergroundPWSOptionsFlow(OptionsFlow):
                     CONF_OPENMETEO_MODEL,
                     default=get_setting(entry, CONF_OPENMETEO_MODEL, DEFAULT_OPENMETEO_MODEL),
                 ): _MODEL_SELECTOR,
+                vol.Optional(
+                    CONF_ENABLE_AIR_QUALITY,
+                    default=get_setting(entry, CONF_ENABLE_AIR_QUALITY, DEFAULT_ENABLE_AIR_QUALITY),
+                ): bool,
             }
         )
         return self.async_show_form(
