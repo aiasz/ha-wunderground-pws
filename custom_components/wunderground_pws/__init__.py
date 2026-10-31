@@ -39,6 +39,7 @@ from .const import (
 from .coordinator import WundergroundConfigEntry, WundergroundPWSCoordinator
 from .forecast import ForecastCoordinator
 from .settings import get_setting, settings_signature
+from .solar_coordinator import SolarCoordinator
 from .state import StateStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,6 +69,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 await coordinator.forecast.async_refresh_if_due(force=True)
             if coordinator.air_quality is not None:
                 await coordinator.air_quality.async_refresh_if_due(force=True)
+            if coordinator.solar is not None:
+                await coordinator.solar.async_refresh_if_due(force=True)
 
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, _async_refresh)
     return True
@@ -98,6 +101,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: WundergroundConfigEntry)
     # assigns the new data after _async_update_data returns).
     entry.async_on_unload(forecast.async_add_listener(coordinator.async_recompute_condition))
     await forecast.async_refresh_if_due()
+
+    # Solar / current-conditions supplement (M3b): always on, independent of
+    # forecast_source - fills real gaps (wind gust, precipitation rate, solar
+    # radiation, UV) and feeds the sunshine_duration sensor.
+    solar = SolarCoordinator(hass, entry, forecast)
+    coordinator.solar = solar
+    entry.async_on_unload(solar.async_add_listener(coordinator.async_recompute_condition))
+    await solar.async_refresh_if_due()
 
     # Air quality & pollen (M3): opt-in, off by default - one extra API call per cycle.
     if get_setting(entry, CONF_ENABLE_AIR_QUALITY, DEFAULT_ENABLE_AIR_QUALITY):

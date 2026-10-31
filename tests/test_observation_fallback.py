@@ -165,7 +165,7 @@ async def test_fallback_fills_uv_from_forecast_and_coords_from_geocoded_city(
     assert weather.attributes["lon"] is not None
     uv_sensor = _state(hass, "sensor", f"{STATION}_uv_index")
     assert uv_sensor.state != "unknown"
-    assert uv_sensor.attributes["estimated_from_forecast"] is True
+    assert uv_sensor.attributes["estimated"] is True
 
     heat_index_sensor = _state(hass, "sensor", f"{STATION}_heat_index")
     # Mild temperature in the fixture (9 degC): below the heat-index formula's

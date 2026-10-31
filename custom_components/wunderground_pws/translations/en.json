@@ -266,6 +266,9 @@
       },
       "pollen_ragweed": {
         "name": "Ragweed pollen (parlagfű)"
+      },
+      "sunshine_duration": {
+        "name": "Sunshine duration (today)"
       }
     },
     "binary_sensor": {

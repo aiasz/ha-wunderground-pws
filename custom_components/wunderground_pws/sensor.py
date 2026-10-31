@@ -71,13 +71,16 @@ from .const import (
     ATTR_POLLEN_RAGWEED,
     ATTR_PRECIPITATION,
     ATTR_PRECIPITATION_RATE,
+    ATTR_PRECIPITATION_RATE_ESTIMATED,
     ATTR_PRESSURE,
     ATTR_PRESSURE_CHANGE_3H,
     ATTR_PRESSURE_TENDENCY,
     ATTR_SOLAR_RADIATION,
+    ATTR_SOLAR_RADIATION_ESTIMATED,
     ATTR_SOURCE_STATION_ID,
     ATTR_STATION_ID,
     ATTR_SULPHUR_DIOXIDE,
+    ATTR_SUNSHINE_DURATION,
     ATTR_TEMP_MAX_TODAY,
     ATTR_TEMP_MIN_TODAY,
     ATTR_TEMPERATURE,
@@ -91,6 +94,7 @@ from .const import (
     ATTR_WIND_COMPASS_HU,
     ATTR_WIND_COMPASS_SLUG,
     ATTR_WIND_GUST,
+    ATTR_WIND_GUST_ESTIMATED,
     ATTR_WIND_SPEED,
     ATTR_WU_CALLS_TODAY,
     FORECAST_AUTO_ORDER,
@@ -105,6 +109,15 @@ from .entity import WundergroundPWSEntity, build_device_info
 from .forecast import ForecastCoordinator
 
 PARALLEL_UPDATES = 0  # coordinator-backed: no per-entity polling
+
+# Fields the solar supplement (M3b) can fill in when the primary observation is
+# missing them; the sensor then discloses it via an `estimated` attribute (D7).
+_ESTIMATED_ATTR_MAP = {
+    ATTR_UV_INDEX: ATTR_UV_ESTIMATED,
+    ATTR_WIND_GUST: ATTR_WIND_GUST_ESTIMATED,
+    ATTR_PRECIPITATION_RATE: ATTR_PRECIPITATION_RATE_ESTIMATED,
+    ATTR_SOLAR_RADIATION: ATTR_SOLAR_RADIATION_ESTIMATED,
+}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -262,6 +275,18 @@ SENSOR_DESCRIPTIONS: tuple[WundergroundSensorEntityDescription, ...] = (
         data_key=ATTR_UV_INDEX,
         translation_key="uv_index",
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+    # Today's total sunshine (M3b): Open-Meteo, independent of forecast_source - may
+    # still revise during the day (it is today's daily total, not a strict running
+    # counter), hence MEASUREMENT rather than TOTAL_INCREASING.
+    WundergroundSensorEntityDescription(
+        key="sunshine_duration",
+        data_key=ATTR_SUNSHINE_DURATION,
+        translation_key="sunshine_duration",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:weather-sunny",
     ),
     # Diagnostic (F08): how old the last station report is.
     WundergroundSensorEntityDescription(
@@ -479,8 +504,9 @@ class WundergroundPWSSensor(WundergroundPWSEntity, SensorEntity):
         }
         if self.entity_description.data_key == ATTR_WIND_BEARING:
             attrs["compass"] = data.get(ATTR_WIND_COMPASS)
-        if self.entity_description.data_key == ATTR_UV_INDEX:
-            attrs["estimated_from_forecast"] = data.get(ATTR_UV_ESTIMATED, False)
+        estimated_key = _ESTIMATED_ATTR_MAP.get(self.entity_description.data_key)
+        if estimated_key is not None:
+            attrs["estimated"] = data.get(estimated_key, False)
         return attrs
 
 

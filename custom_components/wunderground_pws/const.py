@@ -22,7 +22,7 @@ DEFAULT_SCAN_INTERVAL = 5  # minutes
 MIN_SCAN_INTERVAL = 1
 MAX_SCAN_INTERVAL = 60
 DEFAULT_CITY = ""
-# Pre-filled (not forced) in the setup form: the author's home town, Kaposvár.
+# Pre-filled (not forced) in the setup form: the development/test reference city.
 SUGGESTED_CITY = "Kaposvár"
 
 # --- Forecast sources --------------------------------------------------------
@@ -120,7 +120,11 @@ ATTR_OBS_AGE_MIN = "observation_age_min"
 ATTR_STATION_ONLINE = "station_online"
 ATTR_OBSERVATION_SOURCE = "observation_source"  # "wunderground_api" | "wu_citypage"
 ATTR_SOURCE_STATION_ID = "source_station_id"  # set only when observation_source is a fallback
-ATTR_UV_ESTIMATED = "uv_index_estimated"  # True when uv_index came from the forecast, not a sensor
+ATTR_UV_ESTIMATED = "uv_index_estimated"  # True when uv_index was filled in, not from a sensor
+ATTR_SUNSHINE_DURATION = "sunshine_duration"  # today's total, minutes (M3b)
+ATTR_WIND_GUST_ESTIMATED = "wind_gust_estimated"
+ATTR_PRECIPITATION_RATE_ESTIMATED = "precipitation_rate_estimated"
+ATTR_SOLAR_RADIATION_ESTIMATED = "solar_radiation_estimated"
 ATTR_TEMP_MAX_TODAY = "temperature_max_today"
 ATTR_TEMP_MIN_TODAY = "temperature_min_today"
 ATTR_GUST_MAX_TODAY = "wind_gust_max_today"
@@ -191,6 +195,7 @@ PLAUSIBLE_RANGES: dict[str, tuple[float, float]] = {
     ATTR_PRECIPITATION: (0.0, 2000.0),
     ATTR_SOLAR_RADIATION: (0.0, 1700.0),
     ATTR_UV_INDEX: (0.0, 20.0),
+    ATTR_SUNSHINE_DURATION: (0.0, 1440.0),
 }
 
 # --- Current-condition heuristics (F15) ---------------------------------------------
@@ -347,3 +352,13 @@ UV_BANDS: list[tuple[float, str]] = [
 ]
 # WHO recommends sun protection from this UV index upward.
 UV_PROTECTION_THRESHOLD = 3.0
+
+# --- Solar / current-conditions supplement (M3b, v1.7.1) -------------------------------
+# Open-Meteo "current" (shortwave_radiation, wind_gusts_10m, precipitation, uv_index) +
+# today's daily sunshine_duration, in ONE request - live-verified. Independent of
+# forecast_source (always on, not opt-in): fills real gaps in wind_gust/
+# precipitation_rate/solar_radiation/uv_index and feeds the new sunshine_duration
+# sensor. Fixes the v1.7.0 UV-estimate limitation (that only worked when Open-Meteo
+# itself was the active forecast source).
+SOLAR_TTL = timedelta(minutes=15)  # matches the API's own ~15-minute current-data resolution
+SOLAR_MAX_STALE = timedelta(hours=3)
