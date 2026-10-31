@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
 from .const import (
@@ -32,7 +33,9 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import WundergroundConfigEntry, WundergroundPWSCoordinator
+from .forecast import ForecastCoordinator
 from .settings import get_setting, settings_signature
+from .state import StateStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,16 +44,45 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.WEATHER, Platform.BINARY_
 _REPO_URL = "github.com/aiasz/ha-wunderground-pws"
 
 
+SERVICE_REFRESH = "refresh"
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the ``wunderground_pws.refresh`` service (F19)."""
+
+    async def _async_refresh(call: ServiceCall) -> None:
+        """Refresh observation and forecast of every loaded entry right now."""
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            if entry.state is not ConfigEntryState.LOADED:
+                continue
+            coordinator = entry.runtime_data
+            await coordinator.async_refresh()
+            if coordinator.forecast is not None:
+                await coordinator.forecast.async_refresh_if_due(force=True)
+
+    hass.services.async_register(DOMAIN, SERVICE_REFRESH, _async_refresh)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: WundergroundConfigEntry) -> bool:
     """Set up Wunderground PWS from a config entry."""
     integration = await async_get_integration(hass, DOMAIN)
     # MET Norway's terms require an identifying User-Agent.
     user_agent = f"ha-wunderground-pws/{integration.version} {_REPO_URL}"
 
-    coordinator = WundergroundPWSCoordinator(hass, entry, user_agent)
+    state_store = StateStore(hass, entry.entry_id)
+    await state_store.async_load()
+
+    coordinator = WundergroundPWSCoordinator(hass, entry, state_store)
     # Raises ConfigEntryNotReady / ConfigEntryAuthFailed (-> reauth flow) as needed.
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+
+    # The forecast has its own coordinator: its problems never fail the setup.
+    forecast = ForecastCoordinator(hass, entry, coordinator, state_store, user_agent)
+    await forecast.async_load_persisted()
+    coordinator.forecast = forecast
+    await forecast.async_refresh_if_due()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
@@ -83,7 +115,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: WundergroundConfigEntry
 
 async def async_remove_entry(hass: HomeAssistant, entry: WundergroundConfigEntry) -> None:
     """Delete persistent data of a removed entry."""
-    await Store(hass, 1, f"{DOMAIN}.geocode.{entry.entry_id}").async_remove()
+    await StateStore(hass, entry.entry_id).async_remove()
+    await ForecastCoordinator.async_remove_stores_for(hass, entry.entry_id)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: WundergroundConfigEntry) -> bool:

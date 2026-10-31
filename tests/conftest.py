@@ -39,6 +39,16 @@ DASHBOARD_KEY = "e1f10a1e78da46f5b10a1e78da96f525"  # embedded in wu_dashboard.h
 
 
 @pytest.fixture(autouse=True)
+def _no_retry_delay(monkeypatch):
+    """Retries must not really wait (the frozen test clock would never wake them)."""
+
+    async def _instant(seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr("custom_components.wunderground_pws.providers._http._sleep", _instant)
+
+
+@pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Allow the custom integration to load in every test."""
     yield

@@ -43,12 +43,13 @@
     "step": {
       "init": {
         "title": "Wunderground PWS beállítások ({station_id} állomás)",
-        "description": "Az API kulcs mező kiürítése elindítja az automatikus kulcskeresést. Az állomás azonosító nem módosítható — másik állomáshoz vegyél fel új bejegyzést.\n\nAz **auto** előrejelzés-forrás sorban a Weather Undergroundot, a MET Norway-t, majd az Open-Meteót próbálja.",
+        "description": "Az API kulcs mező kiürítése elindítja az automatikus kulcskeresést. Az állomás azonosító nem módosítható — másik állomáshoz vegyél fel új bejegyzést.\n\nAz **auto** előrejelzés-forrás sorban a Weather Undergroundot, a MET Norway-t, majd az Open-Meteót próbálja.\n\nA **blend** az összes forrást egyetlen konszenzus-előrejelzéssé egyesíti (pontosabb, több API-hívással). Az óránkénti adat az Open-Meteóból / MET Norway-ből jön.",
         "data": {
           "api_key": "API kulcs (üres = automatikus keresés)",
           "scan_interval": "Frissítési időköz (perc)",
           "city": "Előrejelzési város (pl. Kaposvár) — opcionális",
-          "forecast_source": "Előrejelzés forrása"
+          "forecast_source": "Előrejelzés forrása",
+          "openmeteo_model": "Open-Meteo időjárási modell"
         }
       }
     },
@@ -65,7 +66,16 @@
         "auto": "Automatikus (Weather Underground → MET Norway → Open-Meteo)",
         "wunderground": "Csak Weather Underground",
         "metno": "Csak MET Norway",
-        "openmeteo": "Csak Open-Meteo"
+        "openmeteo": "Csak Open-Meteo",
+        "blend": "Az összes forrás együtt (konszenzus / blend)"
+      }
+    },
+    "openmeteo_model": {
+      "options": {
+        "best_match": "Legjobb találat (automatikus)",
+        "ecmwf_ifs": "ECMWF IFS (9 km)",
+        "dwd_icon_eu": "DWD ICON-EU (7 km)",
+        "dwd_icon_seamless": "DWD ICON seamless"
       }
     }
   },
@@ -148,6 +158,50 @@
       },
       "observation_age": {
         "name": "Mérés életkora"
+      },
+      "temperature_max_today": {
+        "name": "Hőmérséklet (mai maximum)"
+      },
+      "temperature_min_today": {
+        "name": "Hőmérséklet (mai minimum)"
+      },
+      "wind_gust_max_today": {
+        "name": "Széllökés (mai maximum)"
+      },
+      "pressure_change_3h": {
+        "name": "Légnyomás-változás (3 óra)"
+      },
+      "pressure_tendency": {
+        "name": "Légnyomás-tendencia",
+        "state": {
+          "rising": "Emelkedő",
+          "steady": "Állandó",
+          "falling": "Csökkenő"
+        }
+      },
+      "wu_api_calls_today": {
+        "name": "Weather Underground API hívások ma"
+      },
+      "forecast_updated": {
+        "name": "Előrejelzés frissítve"
+      },
+      "forecast_source": {
+        "name": "Használt előrejelzés-forrás",
+        "state": {
+          "wunderground": "Weather Underground",
+          "metno": "MET Norway",
+          "openmeteo": "Open-Meteo",
+          "blend": "Konszenzus (blend)"
+        }
+      },
+      "forecast_mae_wunderground": {
+        "name": "Előrejelzés hibája: Weather Underground"
+      },
+      "forecast_mae_metno": {
+        "name": "Előrejelzés hibája: MET Norway"
+      },
+      "forecast_mae_openmeteo": {
+        "name": "Előrejelzés hibája: Open-Meteo"
       }
     },
     "binary_sensor": {
@@ -159,6 +213,12 @@
       "weather": {
         "name": "Időjárás"
       }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Frissítés most",
+      "description": "Azonnal frissíti az összes Wunderground PWS bejegyzés mérését és előrejelzését."
     }
   }
 }

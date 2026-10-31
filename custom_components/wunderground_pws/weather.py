@@ -1,12 +1,11 @@
 """Weather platform for the Wunderground PWS integration.
 
 Author: Aiasz
-Plan: PLAN.md v1.5.0 - B09 (forecast listeners are notified), B10 (RFC 3339
-forecast times), richer current attributes
+Plan: PLAN.md v1.5.0 - B09, B10; v1.6.0 - M2 (hourly forecast)
 
-Uses ``SingleCoordinatorWeatherEntity``, which pushes a fresh forecast to
-subscribed cards after every coordinator update (the pre-1.5 entity did not,
-so cards only saw a new forecast after a reload).
+Uses ``CoordinatorWeatherEntity``: the observation coordinator drives the state,
+the forecast coordinator pushes fresh daily/hourly forecasts to subscribed cards
+(the pre-1.5 entity did not, so cards only saw a new forecast after a reload).
 """
 
 from __future__ import annotations
@@ -14,8 +13,8 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.weather import (
+    CoordinatorWeatherEntity,
     Forecast,
-    SingleCoordinatorWeatherEntity,
     WeatherEntityFeature,
 )
 from homeassistant.const import (
@@ -52,9 +51,11 @@ from .const import (
     ATTR_WIND_SPEED,
     ATTRIBUTION_FORECAST,
     ATTRIBUTION_WU,
+    FORECAST_SOURCE_BLEND,
 )
 from .coordinator import WundergroundConfigEntry, WundergroundPWSCoordinator
 from .entity import build_device_info
+from .forecast import ForecastCoordinator
 
 PARALLEL_UPDATES = 0
 
@@ -68,7 +69,11 @@ async def async_setup_entry(
     async_add_entities([WundergroundPWSWeather(entry.runtime_data)])
 
 
-class WundergroundPWSWeather(SingleCoordinatorWeatherEntity[WundergroundPWSCoordinator]):
+class WundergroundPWSWeather(
+    CoordinatorWeatherEntity[
+        WundergroundPWSCoordinator, ForecastCoordinator, ForecastCoordinator, ForecastCoordinator
+    ]
+):
     """Station measurements as the current state, multi-source daily forecast."""
 
     _attr_has_entity_name = True
@@ -77,11 +82,20 @@ class WundergroundPWSWeather(SingleCoordinatorWeatherEntity[WundergroundPWSCoord
     _attr_native_pressure_unit = UnitOfPressure.HPA
     _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
     _attr_native_precipitation_unit = UnitOfLength.MILLIMETERS
-    _attr_supported_features = WeatherEntityFeature.FORECAST_DAILY
+    _attr_supported_features = (
+        WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY
+    )
 
     def __init__(self, coordinator: WundergroundPWSCoordinator) -> None:
         """Initialise the entity."""
-        super().__init__(coordinator)
+        forecast = coordinator.forecast
+        assert forecast is not None
+        super().__init__(
+            coordinator,
+            daily_coordinator=forecast,
+            hourly_coordinator=forecast,
+        )
+        self._forecast = forecast
         # Format kept from earlier versions (do not change).
         self._attr_unique_id = f"{coordinator.station_id}_weather"
         self._attr_device_info = build_device_info(coordinator.station_id)
@@ -94,8 +108,12 @@ class WundergroundPWSWeather(SingleCoordinatorWeatherEntity[WundergroundPWSCoord
     @property
     def attribution(self) -> str:
         """Credit the station network and the forecast source in use."""
-        forecast = ATTRIBUTION_FORECAST.get(self.coordinator.forecast_source_used)
-        return f"{ATTRIBUTION_WU}; {forecast}" if forecast else ATTRIBUTION_WU
+        used = {self._forecast.source_used, self._forecast.data.get("hourly_source", "")}
+        parts = [ATTRIBUTION_WU]
+        if FORECAST_SOURCE_BLEND in used:
+            used |= set(self._forecast.data.get("sources_used") or [])
+        parts += [ATTRIBUTION_FORECAST[s] for s in sorted(used) if s in ATTRIBUTION_FORECAST]
+        return "; ".join(parts)
 
     @property
     def condition(self) -> str | None:
@@ -152,7 +170,7 @@ class WundergroundPWSWeather(SingleCoordinatorWeatherEntity[WundergroundPWSCoord
         """Station details and forecast bookkeeping."""
         if self.coordinator.data is None:
             return {}
-        c = self.coordinator
+        f = self._forecast
         return {
             "station_id": self._value(ATTR_STATION_ID),
             "location": self._value(ATTR_LOCATION_NAME),
@@ -166,37 +184,67 @@ class WundergroundPWSWeather(SingleCoordinatorWeatherEntity[WundergroundPWSCoord
             "cloud_base": self._value(ATTR_CLOUD_BASE),
             "absolute_humidity": self._value(ATTR_ABSOLUTE_HUMIDITY),
             "wind_chill": self._value(ATTR_WIND_CHILL),
-            "forecast_city": c.city or None,
-            "forecast_source": c.forecast_source or None,
-            "forecast_source_used": c.forecast_source_used or None,
-            "forecast_stale": c.forecast_stale,
-            "forecast_updated": (
-                c.forecast_fetched_at.isoformat() if c.forecast_fetched_at else None
-            ),
+            "forecast_city": f.city or None,
+            "forecast_source": f.source or None,
+            "forecast_source_used": f.source_used or None,
+            "hourly_source_used": f.data.get("hourly_source") or None,
+            "forecast_sources": f.data.get("sources_used") or [],
+            "forecast_stale": f.stale,
+            "forecast_updated": f.fetched_at.isoformat() if f.fetched_at else None,
         }
 
     @callback
     def _async_forecast_daily(self) -> list[Forecast] | None:
         """Return the daily forecast in native (metric) units."""
-        points = self.coordinator.forecast_data
+        return self._to_forecast(self._forecast.daily, _DAILY_KEYS)
+
+    @callback
+    def _async_forecast_hourly(self) -> list[Forecast] | None:
+        """Return the hourly forecast in native (metric) units."""
+        return self._to_forecast(self._forecast.hourly, _HOURLY_KEYS)
+
+    @staticmethod
+    def _to_forecast(
+        points: list[Any], mapping: tuple[tuple[str, str], ...]
+    ) -> list[Forecast] | None:
+        """Convert normalised points to Home Assistant ``Forecast`` dicts."""
         if not points:
             return None
         result: list[Forecast] = []
         for point in points:
             forecast = Forecast(datetime=point["datetime"])
-            for key, target in (
-                ("temperature", "native_temperature"),
-                ("templow", "native_templow"),
-                ("precipitation", "native_precipitation"),
-                ("precipitation_probability", "precipitation_probability"),
-                ("condition", "condition"),
-                ("cloud_coverage", "cloud_coverage"),
-                ("wind_speed", "native_wind_speed"),
-                ("wind_gust_speed", "native_wind_gust_speed"),
-                ("uv_index", "uv_index"),
-            ):
+            for key, target in mapping:
                 value = point.get(key)
                 if value is not None:
                     forecast[target] = value  # type: ignore[literal-required]
             result.append(forecast)
         return result
+
+
+# Normalised point key -> Home Assistant ``Forecast`` key.
+_DAILY_KEYS = (
+    ("temperature", "native_temperature"),
+    ("templow", "native_templow"),
+    ("precipitation", "native_precipitation"),
+    ("precipitation_probability", "precipitation_probability"),
+    ("condition", "condition"),
+    ("cloud_coverage", "cloud_coverage"),
+    ("wind_speed", "native_wind_speed"),
+    ("wind_gust_speed", "native_wind_gust_speed"),
+    ("uv_index", "uv_index"),
+)
+_HOURLY_KEYS = (
+    ("temperature", "native_temperature"),
+    ("apparent_temperature", "native_apparent_temperature"),
+    ("precipitation", "native_precipitation"),
+    ("precipitation_probability", "precipitation_probability"),
+    ("condition", "condition"),
+    ("cloud_coverage", "cloud_coverage"),
+    ("wind_speed", "native_wind_speed"),
+    ("wind_gust_speed", "native_wind_gust_speed"),
+    ("wind_bearing", "wind_bearing"),
+    ("pressure", "native_pressure"),
+    ("humidity", "humidity"),
+    ("dew_point", "native_dew_point"),
+    ("uv_index", "uv_index"),
+)

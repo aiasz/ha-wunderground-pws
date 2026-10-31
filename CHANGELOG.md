@@ -6,6 +6,41 @@ Minden lényeges változás ebben a fájlban szerepel. A formátum a
 
 A `B##` / `F##` / `M#` / `S#` azonosítók a fejlesztési terv (`PLAN.md`) tételeire hivatkoznak.
 
+## [1.6.0] – 2026-10-31
+
+Óránkénti előrejelzés, külön előrejelzés-koordinátor és stabilitás. **Visszafelé kompatibilis**
+(új entitások új kulccsal; a meglévők azonosítói változatlanok).
+
+### Hozzáadva
+- **Óránkénti előrejelzés (M2)** – a `weather` entitás `hourly` előrejelzést is ad (72 óra, nappal/éjszaka
+  tudatos állapottal): Open-Meteo (elsődleges) → MET Norway. A WU PWS API-nak nincs óránkénti előrejelzése;
+  „csak Weather Underground” módban az óránkénti adat az Open-Meteóból/MET Norway-ből érkezik.
+  Ötletgazda: **ztarsoly** ([#1](https://github.com/aiasz/ha-wunderground-pws/issues/1)).
+- **Blend (konszenzus) előrejelzés (F02)** – új `blend` forrás: az összes forrás egyesítve (hőmérséklet
+  medián, csapadék/szél átlag, állapot többségi szavazás); a `sources` mező mutatja a résztvevőket.
+- **Előrejelzés-pontozás a saját állomással (F21)** – blend módban minden forrás „holnapi” előrejelzését
+  összeveti a mért napi max/min hőmérséklettel (gördülő 14 nap); a blend a pontosabb forrást nagyobb
+  súllyal veszi figyelembe. Diagnosztikai szenzorok: `Forecast error: …` (alapból kikapcsolva).
+- **Open-Meteo modellválasztás (F03)** – `best_match`, ECMWF IFS (9 km), DWD ICON-EU, ICON seamless.
+- **Mai szélsőértékek (F11)** – mai max/min hőmérséklet és max széllökés (éjfélig; újraindítás után is megmarad).
+- **Légnyomás-tendencia (F12)** – 3 órás változás (hPa) és `rising / steady / falling` állapot.
+- **Diagnosztika (F19)** – letölthető, kiredaktált diagnosztika (API kulcs, város, koordináták nélkül);
+  `wunderground_pws.refresh` szolgáltatás; szenzorok: előrejelzés frissítve, használt forrás,
+  Weather Underground API hívások ma.
+- **Tartós előrejelzés-gyorsítótár (F20)** – az utolsó jó előrejelzés újraindítás és API-kiesés után is látszik
+  (`forecast_stale` jelzéssel).
+- **Újrapróbálkozás és megszakító (S5, S6)** – átmeneti hibánál (időtúllépés, 5xx) egy újrapróbálkozás
+  növekvő, szórt várakozással; 3 egymás utáni hiba után a forrást 10 percre kihagyja.
+
+### Módosítva
+- Az előrejelzés **saját koordinátorba** került (S1): lassú vagy hibás forrás sosem lassítja a méréseket,
+  és a beállítás sem hiúsul meg miatta. A megfigyelés frissítése háttérfeladatként indítja.
+- Az éjszakai „jelenlegi állapot” az aktuális óra előrejelzett állapotából jön (ha van óránkénti adat).
+- Az előrejelzés-forrás választó új értéke: `blend`.
+
+### Javítva
+- Az opciók mentése új beállítással (Open-Meteo modell) nem indít felesleges újratöltést kulcscserénél.
+
 ## [1.5.0] – 2026-10-31
 
 Alapok, hibajavítások és az angol nyelvű változat. **Visszafelé kompatibilis**: a meglévő

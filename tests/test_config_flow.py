@@ -174,7 +174,7 @@ async def test_options_save_always_stores_the_key(hass, aioclient_mock) -> None:
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED  # reloaded with the new settings
     assert entry.runtime_data.scan_interval == 10
-    assert entry.runtime_data.forecast_source == "metno"
+    assert entry.runtime_data.forecast.source == "metno"
 
 
 async def test_options_changed_key_applies_without_reload(hass, aioclient_mock) -> None:

@@ -1,7 +1,7 @@
 """MET Norway Locationforecast 2.0 provider.
 
 Author: Aiasz
-Plan: PLAN.md F01, B03 (precipitation double counting), B04 (local-day buckets), B08
+Plan: PLAN.md F01, M2 (hourly), B03 (precipitation double counting), B04 (local-day buckets), B08
 
 Terms (api.met.no/doc/TermsOfService): identifying User-Agent, honour the
 ``Expires`` / ``Last-Modified`` headers (cache), coordinates with <= 4
@@ -25,7 +25,7 @@ from ..const import (
     METNO_FORECAST_URL,
     TIMEOUT_FORECAST,
 )
-from ..models import DailyForecastPoint, local_midnight_utc_iso
+from ..models import DailyForecastPoint, HourlyForecastPoint, local_midnight_utc_iso
 from ._http import request_json
 from .base import Capability, ProviderError, ProviderInfo
 
@@ -33,7 +33,7 @@ INFO = ProviderInfo(
     key="metno",
     name="MET Norway",
     attribution=ATTRIBUTION_FORECAST[FORECAST_SOURCE_METNO],
-    capabilities=frozenset({Capability.DAILY}),
+    capabilities=frozenset({Capability.DAILY, Capability.HOURLY}),
 )
 
 # Used when the server sends no (parsable) ``Expires`` header.
@@ -134,6 +134,58 @@ def parse_daily(
     return forecast
 
 
+HOURLY_HOURS = 72
+
+
+def parse_hourly(
+    data: dict[str, Any], now: datetime | None = None, max_hours: int = HOURLY_HOURS
+) -> list[HourlyForecastPoint]:
+    """Hourly points from the part of the series that has ``next_1_hours``.
+
+    MET Norway is hourly for roughly the first 60 hours and 6-hourly after that;
+    only genuinely hourly entries are returned. The ``_day`` / ``_night``
+    symbol suffix drives the day/night aware condition.
+    """
+    series = (data.get("properties") or {}).get("timeseries") or []
+    cutoff = (now or datetime.now(UTC)).replace(minute=0, second=0, microsecond=0)
+    points: list[HourlyForecastPoint] = []
+    for entry in series:
+        try:
+            stamp = datetime.fromisoformat(str(entry.get("time")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        stamp = stamp.astimezone(UTC)
+        if stamp < cutoff:
+            continue
+        block = entry.get("data") or {}
+        next1 = block.get("next_1_hours")
+        if not next1:
+            continue
+        instant = (block.get("instant") or {}).get("details") or {}
+        details = next1.get("details") or {}
+        wind_ms = safe_float(instant.get("wind_speed"))
+        gust_ms = safe_float(instant.get("wind_speed_of_gust"))
+        points.append(
+            HourlyForecastPoint(
+                datetime=stamp.isoformat(),
+                temperature=safe_float(instant.get("air_temperature")),
+                precipitation=safe_float(details.get("precipitation_amount")),
+                precipitation_probability=safe_float(details.get("probability_of_precipitation")),
+                condition=map_metno_symbol((next1.get("summary") or {}).get("symbol_code")),
+                cloud_coverage=safe_float(instant.get("cloud_area_fraction")),
+                wind_speed=round(wind_ms * 3.6, 1) if wind_ms is not None else None,
+                wind_gust_speed=round(gust_ms * 3.6, 1) if gust_ms is not None else None,
+                wind_bearing=safe_float(instant.get("wind_from_direction")),
+                pressure=safe_float(instant.get("air_pressure_at_sea_level")),
+                humidity=safe_float(instant.get("relative_humidity")),
+                dew_point=safe_float(instant.get("dew_point_temperature")),
+            )
+        )
+        if len(points) >= max_hours:
+            break
+    return points
+
+
 @dataclass
 class _CacheEntry:
     data: dict[str, Any]
@@ -168,15 +220,15 @@ class MetNoClient:
         self._user_agent = user_agent
         self._cache: dict[tuple[float, float], _CacheEntry] = {}
 
-    async def fetch_daily_forecast(
+    async def fetch_forecast(
         self,
         session: aiohttp.ClientSession,
         lat: float,
         lon: float,
         tz: tzinfo,
         now: datetime | None = None,
-    ) -> list[DailyForecastPoint]:
-        """Return the 7-day daily forecast (cached per the server's headers)."""
+    ) -> tuple[list[DailyForecastPoint], list[HourlyForecastPoint]]:
+        """Return ``(daily, hourly)`` from ONE cached request (honours the headers)."""
         now = now or datetime.now(UTC)
         key = (round(lat, 4), round(lon, 4))  # terms: <= 4 decimals
         cached = self._cache.get(key)
@@ -207,4 +259,4 @@ class MetNoClient:
                 raise ProviderError("metno: unexpected payload")
 
         today = now.astimezone(tz).date()
-        return parse_daily(data, tz, today)
+        return parse_daily(data, tz, today), parse_hourly(data, now)

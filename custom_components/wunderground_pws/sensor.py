@@ -2,7 +2,8 @@
 
 Author: Aiasz
 Plan: PLAN.md v1.5.0 - M1 (translation keys), F08 (observation age),
-F13 (wet bulb), enum wind direction
+F13 (wet bulb), enum wind direction; v1.6.0 - F11 (today's extremes), F12
+(pressure tendency), F19 (diagnostics), F21 (forecast scores)
 
 Entity ``key`` values are the suffix of the entity ``unique_id`` and MUST NOT
 change (backward compatibility, plan principle P1). Display names come from the
@@ -11,6 +12,7 @@ translations (``entity.sensor.<translation_key>.name``).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,6 +36,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .calculations import COMPASS_SLUGS
 from .const import (
@@ -41,6 +44,7 @@ from .const import (
     ATTR_CLOUD_BASE,
     ATTR_DEW_POINT,
     ATTR_FEELS_LIKE,
+    ATTR_GUST_MAX_TODAY,
     ATTR_HEAT_INDEX,
     ATTR_HUMIDITY,
     ATTR_LAST_UPDATED,
@@ -48,8 +52,12 @@ from .const import (
     ATTR_PRECIPITATION,
     ATTR_PRECIPITATION_RATE,
     ATTR_PRESSURE,
+    ATTR_PRESSURE_CHANGE_3H,
+    ATTR_PRESSURE_TENDENCY,
     ATTR_SOLAR_RADIATION,
     ATTR_STATION_ID,
+    ATTR_TEMP_MAX_TODAY,
+    ATTR_TEMP_MIN_TODAY,
     ATTR_TEMPERATURE,
     ATTR_UV_INDEX,
     ATTR_WET_BULB,
@@ -60,9 +68,14 @@ from .const import (
     ATTR_WIND_COMPASS_SLUG,
     ATTR_WIND_GUST,
     ATTR_WIND_SPEED,
+    ATTR_WU_CALLS_TODAY,
+    FORECAST_AUTO_ORDER,
+    FORECAST_SOURCE_BLEND,
+    PRESSURE_TENDENCIES,
 )
 from .coordinator import WundergroundConfigEntry
-from .entity import WundergroundPWSEntity
+from .entity import WundergroundPWSEntity, build_device_info
+from .forecast import ForecastCoordinator
 
 PARALLEL_UPDATES = 0  # coordinator-backed: no per-entity polling
 
@@ -95,6 +108,33 @@ SENSOR_DESCRIPTIONS: tuple[WundergroundSensorEntityDescription, ...] = (
     _temperature("wind_chill", ATTR_WIND_CHILL),
     # New in 1.5 (F13); off by default, it is a niche value.
     _temperature("wet_bulb", ATTR_WET_BULB, entity_registry_enabled_default=False),
+    # Today's extremes (F11) - persisted, reset at local midnight.
+    _temperature("temperature_max_today", ATTR_TEMP_MAX_TODAY),
+    _temperature("temperature_min_today", ATTR_TEMP_MIN_TODAY),
+    WundergroundSensorEntityDescription(
+        key="wind_gust_max_today",
+        data_key=ATTR_GUST_MAX_TODAY,
+        translation_key="wind_gust_max_today",
+        native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
+        device_class=SensorDeviceClass.WIND_SPEED,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    # Pressure tendency (F12): change over the last ~3 hours.
+    WundergroundSensorEntityDescription(
+        key="pressure_change_3h",
+        data_key=ATTR_PRESSURE_CHANGE_3H,
+        translation_key="pressure_change_3h",
+        native_unit_of_measurement=UnitOfPressure.HPA,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+    ),
+    WundergroundSensorEntityDescription(
+        key="pressure_tendency",
+        data_key=ATTR_PRESSURE_TENDENCY,
+        translation_key="pressure_tendency",
+        device_class=SensorDeviceClass.ENUM,
+        options=PRESSURE_TENDENCIES,
+    ),
     WundergroundSensorEntityDescription(
         key="humidity",
         data_key=ATTR_HUMIDITY,
@@ -206,6 +246,57 @@ SENSOR_DESCRIPTIONS: tuple[WundergroundSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    # Diagnostic (F19): requests made to the Weather Underground API today.
+    WundergroundSensorEntityDescription(
+        key="wu_api_calls_today",
+        data_key=ATTR_WU_CALLS_TODAY,
+        translation_key="wu_api_calls_today",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:counter",
+    ),
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ForecastSensorEntityDescription(SensorEntityDescription):
+    """A sensor whose value comes from the forecast coordinator."""
+
+    value_fn: Callable[[ForecastCoordinator], Any]
+
+
+def _mae_sensor(source: str) -> ForecastSensorEntityDescription:
+    """Forecast accuracy (F21): mean absolute error of a source, off by default."""
+    return ForecastSensorEntityDescription(
+        key=f"forecast_mae_{source}",
+        translation_key=f"forecast_mae_{source}",
+        native_unit_of_measurement="°C",  # an error, not a temperature: no conversion
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        suggested_display_precision=2,
+        icon="mdi:bullseye-arrow",
+        value_fn=lambda fc, src=source: fc.state_store.state.scorer.mae(src),
+    )
+
+
+FORECAST_SENSOR_DESCRIPTIONS: tuple[ForecastSensorEntityDescription, ...] = (
+    ForecastSensorEntityDescription(
+        key="forecast_updated",
+        translation_key="forecast_updated",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda fc: fc.fetched_at,
+    ),
+    ForecastSensorEntityDescription(
+        key="forecast_source",
+        translation_key="forecast_source",
+        device_class=SensorDeviceClass.ENUM,
+        options=[*FORECAST_AUTO_ORDER, FORECAST_SOURCE_BLEND],
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda fc: fc.source_used or None,
+    ),
+    *(_mae_sensor(src) for src in FORECAST_AUTO_ORDER),
 )
 
 
@@ -216,8 +307,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Wunderground PWS sensors."""
     coordinator = entry.runtime_data
+    forecast = coordinator.forecast
+    assert forecast is not None
     async_add_entities(
-        WundergroundPWSSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
+        [
+            *(WundergroundPWSSensor(coordinator, d) for d in SENSOR_DESCRIPTIONS),
+            *(WundergroundPWSForecastSensor(forecast, d) for d in FORECAST_SENSOR_DESCRIPTIONS),
+        ]
     )
 
 
@@ -253,3 +349,25 @@ class WundergroundPWSSensor(WundergroundPWSEntity, SensorEntity):
         if self.entity_description.data_key == ATTR_WIND_BEARING:
             attrs["compass"] = data.get(ATTR_WIND_COMPASS)
         return attrs
+
+
+class WundergroundPWSForecastSensor(CoordinatorEntity[ForecastCoordinator], SensorEntity):
+    """Diagnostic values of the forecast pipeline (freshness, source, accuracy)."""
+
+    _attr_has_entity_name = True
+    entity_description: ForecastSensorEntityDescription
+
+    def __init__(
+        self, coordinator: ForecastCoordinator, description: ForecastSensorEntityDescription
+    ) -> None:
+        """Initialise the sensor."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        station_id = coordinator.observation.station_id
+        self._attr_unique_id = f"{station_id}_{description.key}"
+        self._attr_device_info = build_device_info(station_id)
+
+    @property
+    def native_value(self) -> Any:
+        """Return the value computed from the forecast coordinator."""
+        return self.entity_description.value_fn(self.coordinator)
