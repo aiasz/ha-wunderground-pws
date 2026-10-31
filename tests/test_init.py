@@ -124,20 +124,22 @@ async def test_forecast_survives_total_failure_then_expires(hass, aioclient_mock
     entry = make_entry()
     await _setup(hass, entry)
     coordinator = entry.runtime_data
-    assert len(coordinator.forecast_data) == 3
+    forecast = coordinator.forecast
+    assert len(forecast.daily) == 3
 
     aioclient_mock.clear_requests()
     mock_apis(aioclient_mock, wu_forecast_status=500, open_meteo_status=500)
     aioclient_mock.mock_calls.clear()
     freezer.tick(timedelta(minutes=31))
+    await forecast.async_refresh_if_due(force=True)
     await coordinator.async_refresh()
     assert coordinator.last_update_success  # observation update is unaffected
-    assert len(coordinator.forecast_data) == 3
-    assert coordinator.forecast_stale is True
+    assert len(forecast.daily) == 3
+    assert forecast.stale is True
 
     freezer.tick(timedelta(hours=13))
-    await coordinator.async_refresh()
-    assert coordinator.forecast_data == []  # too old to be useful
+    await forecast.async_refresh_if_due(force=True)
+    assert forecast.daily == []  # too old to be useful
 
 
 async def test_forecast_is_not_refetched_every_cycle(hass, aioclient_mock, freezer) -> None:
@@ -153,11 +155,13 @@ async def test_forecast_is_not_refetched_every_cycle(hass, aioclient_mock, freez
     await coordinator.async_refresh()
     freezer.tick(timedelta(minutes=6))
     await coordinator.async_refresh()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert len(calls_to(aioclient_mock, "observations/current")) == 3
     assert len(calls_to(aioclient_mock, "forecast/daily")) == 1  # still cached
 
     freezer.tick(timedelta(minutes=30))
     await coordinator.async_refresh()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert len(calls_to(aioclient_mock, "forecast/daily")) == 2  # TTL elapsed
 
 
@@ -169,7 +173,7 @@ async def test_city_is_geocoded_once_and_cached(hass, aioclient_mock, freezer) -
     await _setup(hass, entry)
     coordinator = entry.runtime_data
     freezer.tick(timedelta(minutes=31))
-    await coordinator.async_refresh()
+    await coordinator.forecast.async_refresh_if_due(force=True)
     assert len(calls_to(aioclient_mock, OPEN_METEO_GEOCODING_URL)) == 1
 
 

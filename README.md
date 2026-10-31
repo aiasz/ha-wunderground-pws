@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integráció
 
-**Készítő: Aiasz · Verzió: 1.5.0 · [English README](README.en.md)**
+**Készítő: Aiasz · Verzió: 1.6.0 · [English README](README.en.md)**
 
 Bármelyik [Weather Underground](https://www.wunderground.com/) személyes időjárás-állomás (PWS) adatait
 megjeleníti a Home Assistantban – az **official WU API**-n keresztül, metrikus egységekkel – és mellé
@@ -16,8 +16,12 @@ tartalék-lánccal. Magyar és angol nyelven használható.
 - **Saját állomás mérései**: hőmérséklet, érzett hőmérséklet, harmatpont, hőérzet/szélhűtési index, páratartalom,
   légnyomás, szél (sebesség, lökés, irány fokban és égtájban), csapadék (napi, intenzitás), napsugárzás, UV,
   számított értékek (felhőalap, abszolút páratartalom, nedves hőmérséklet).
-- **Weather entitás** 7 napos (illetve a forrás által adott) napi előrejelzéssel.
+- **Weather entitás** napi (7 nap) **és óránkénti (72 óra)** előrejelzéssel.
 - **Többforrású előrejelzés fallback-kel**: Weather Underground → MET Norway → Open-Meteo (vagy egy kiválasztott forrás).
+- **Blend (konszenzus) mód**: az összes forrás együtt; a rendszer a *saját állomásod méréseivel* pontozza a forrásokat, és a pontosabbat nagyobb súllyal veszi.
+- **Open-Meteo modellválasztás**: automatikus, ECMWF IFS, DWD ICON-EU.
+- **Mai max/min** hőmérséklet és széllökés, **légnyomás-tendencia** (emelkedő/állandó/csökkenő).
+- **Diagnosztika**: letölthető (kiredaktált) diagnosztika, `wunderground_pws.refresh` szolgáltatás.
 - **Magyar és angol felület** – a Home Assistant nyelvét követi (entitásnevek, beállítások, szélirány).
 - **Állomás-állapot**: `Station online` és `Observation age` diagnosztikai entitás; kiugró mérések szűrése.
 - **Pontosabb állapotjelzés**: éjszaka `clear-night`, hó/ónos eső, köd, erős szél, derültség a napsugárzásból.
@@ -45,7 +49,8 @@ Minimum Home Assistant verzió: **2024.12.0**.
 | API kulcs | saját kulcs a [WU fiókodból](https://www.wunderground.com/member/api-keys); **üresen hagyva demo mód** |
 | Frissítési időköz | 1–60 perc (ajánlott: 5) |
 | Előrejelzési város | opcionális (pl. `Kaposvár`); üresen az állomás koordinátái |
-| Előrejelzés forrása | `auto` / csak WU / csak MET Norway / csak Open-Meteo |
+| Előrejelzés forrása | `auto` / `blend` / csak WU / csak MET Norway / csak Open-Meteo |
+| Open-Meteo modell | (opciókban) automatikus / ECMWF IFS / DWD ICON-EU / ICON seamless |
 
 Az API kulcs és a többi beállítás később: *Configure*. Az üresen hagyott kulcs automatikus keresést indít.
 
@@ -68,7 +73,7 @@ utána a Home Assistant újrahitelesítést kér. A kézzel megadott kulcsot az 
 | Előrejelzés | MET Norway Locationforecast 2.0 (CC BY 4.0) | nem |
 | Előrejelzés, geokódolás | Open-Meteo (CC BY 4.0) | nem |
 
-Az `auto` mód az első sikeres forrást használja; melyiket, azt a `forecast_source_used` attribútum mutatja.
+Az **óránkénti** adat Open-Meteóból, vagy MET Norway-ből jön (a WU PWS API-nak nincs óránkénti előrejelzése). Az `auto` mód az első sikeres forrást használja; melyiket, azt a `forecast_source_used` attribútum mutatja.
 A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
 
 ## Entitások
@@ -86,7 +91,11 @@ A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
 | `wind_compass_hu` | szöveg | régi, magyar égtáj (kompatibilitás) |
 | `precipitation_rate` / `precipitation_today` | mm/h / mm | |
 | `solar_radiation` / `uv_index` / `cloud_base` | W/m² / – / m | |
+| `temperature_max_today`, `temperature_min_today`, `wind_gust_max_today` | °C, km/h | mai szélsőértékek (éjfélig) |
+| `pressure_change_3h` / `pressure_tendency` | hPa / enum | 3 órás légnyomás-változás és tendencia |
 | `observation_age` | perc | diagnosztika |
+| `wu_api_calls_today`, `forecast_updated`, `forecast_source` | – | diagnosztika |
+| `forecast_mae_*` | °C | előrejelzés-hiba forrásonként (blend módban; alapból kikapcsolt) |
 | `station_online` | be/ki | diagnosztika: friss-e az utolsó mérés |
 | `weather` | – | aktuális állapot + napi előrejelzés |
 
@@ -95,7 +104,7 @@ A kötelező forrásmegjelölések: [CREDITS](CREDITS.md).
 ```yaml
 type: weather-forecast
 entity: weather.wunderground_pws_ikapos27_weather
-forecast_type: daily
+forecast_type: hourly   # vagy: daily
 ```
 (Régebbi telepítéseknél az entitás azonosítója változatlan marad, pl. `weather.wunderground_pws_ikapos27`.)
 

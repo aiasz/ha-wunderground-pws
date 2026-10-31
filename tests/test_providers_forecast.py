@@ -195,7 +195,8 @@ async def test_metno_client_respects_expires_and_conditional_requests(hass, aioc
     lat, lon = 46.36667, 17.78333
 
     t0 = datetime(2026, 11, 1, 9, 5, tzinfo=UTC)
-    assert await client.fetch_daily_forecast(session, lat, lon, TZ, now=t0)
+    daily, hourly = await client.fetch_forecast(session, lat, lon, TZ, now=t0)
+    assert daily and hourly
     assert aioclient_mock.call_count == 1
     sent = aioclient_mock.mock_calls[0]
     assert "ha-wunderground-pws" in sent[3]["User-Agent"]
@@ -203,7 +204,7 @@ async def test_metno_client_respects_expires_and_conditional_requests(hass, aioc
 
     # Still before Expires -> served from the cache, no request.
     t1 = datetime(2026, 11, 1, 9, 20, tzinfo=UTC)
-    await client.fetch_daily_forecast(session, lat, lon, TZ, now=t1)
+    await client.fetch_forecast(session, lat, lon, TZ, now=t1)
     assert aioclient_mock.call_count == 1
 
     # After Expires -> conditional request; a 304 keeps the cached data.
@@ -212,5 +213,6 @@ async def test_metno_client_respects_expires_and_conditional_requests(hass, aioc
         METNO_FORECAST_URL, status=304, headers={"Expires": "Sun, 01 Nov 2026 10:30:00 GMT"}
     )
     t2 = datetime(2026, 11, 1, 9, 40, tzinfo=UTC)
-    assert await client.fetch_daily_forecast(session, lat, lon, TZ, now=t2)
+    daily, _ = await client.fetch_forecast(session, lat, lon, TZ, now=t2)
+    assert daily
     assert aioclient_mock.mock_calls[0][3]["If-Modified-Since"] == "Sun, 01 Nov 2026 09:00:00 GMT"

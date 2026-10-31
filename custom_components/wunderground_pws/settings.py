@@ -19,8 +19,14 @@ from .const import (
     CONF_API_KEY,
     CONF_CITY,
     CONF_FORECAST_SOURCE,
+    CONF_OPENMETEO_MODEL,
     CONF_SCAN_INTERVAL,
     CONF_STATION_ID,
+    DEFAULT_CITY,
+    DEFAULT_FORECAST_SOURCE,
+    DEFAULT_OPENMETEO_MODEL,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_STATION_ID,
 )
 
 
@@ -39,12 +45,13 @@ def settings_signature(entry: ConfigEntry) -> tuple[Any, ...]:
     The API key is deliberately excluded: the coordinator picks up a changed
     key without a reload (and persisting a re-discovered key must not reload).
     """
-    return tuple(
-        get_setting(entry, key)
-        for key in (
-            CONF_STATION_ID,
-            CONF_SCAN_INTERVAL,
-            CONF_CITY,
-            CONF_FORECAST_SOURCE,
-        )
-    )
+    defaults = {
+        CONF_STATION_ID: DEFAULT_STATION_ID,
+        CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+        CONF_CITY: DEFAULT_CITY,
+        CONF_FORECAST_SOURCE: DEFAULT_FORECAST_SOURCE,
+        CONF_OPENMETEO_MODEL: DEFAULT_OPENMETEO_MODEL,
+    }
+    # With the defaults applied, "not set yet" and "set to the default" compare equal,
+    # so saving the options without a real change does not reload the integration.
+    return tuple(get_setting(entry, key, default) for key, default in defaults.items())

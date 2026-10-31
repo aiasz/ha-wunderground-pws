@@ -28,19 +28,31 @@ FORECAST_SOURCE_AUTO = "auto"  # WU -> MET.no -> Open-Meteo (fallback chain)
 FORECAST_SOURCE_WUNDERGROUND = "wunderground"
 FORECAST_SOURCE_METNO = "metno"
 FORECAST_SOURCE_OPENMETEO = "openmeteo"
+# Consensus of ALL sources (median / weighted mean, majority condition): PLAN.md F02.
+FORECAST_SOURCE_BLEND = "blend"
 FORECAST_SOURCES = [
     FORECAST_SOURCE_AUTO,
+    FORECAST_SOURCE_BLEND,
     FORECAST_SOURCE_WUNDERGROUND,
     FORECAST_SOURCE_METNO,
     FORECAST_SOURCE_OPENMETEO,
 ]
 DEFAULT_FORECAST_SOURCE = FORECAST_SOURCE_AUTO
-# Order used by ``auto`` mode.
+# Order used by ``auto`` mode (and the tie-break order of ``blend``).
 FORECAST_AUTO_ORDER = [
     FORECAST_SOURCE_WUNDERGROUND,
     FORECAST_SOURCE_METNO,
     FORECAST_SOURCE_OPENMETEO,
 ]
+# Hourly data exists only at these sources (the WU PWS API has no hourly forecast).
+HOURLY_SOURCES = [FORECAST_SOURCE_OPENMETEO, FORECAST_SOURCE_METNO]
+
+# Open-Meteo model choice (PLAN.md F03). Identifiers verified against the Open-Meteo
+# documentation (DWD ICON / ECMWF pages); ``dwd_icon_d2`` is left out on purpose: it
+# does not cover Hungary.
+OPENMETEO_MODEL_BEST = "best_match"
+OPENMETEO_MODELS = [OPENMETEO_MODEL_BEST, "ecmwf_ifs", "dwd_icon_eu", "dwd_icon_seamless"]
+DEFAULT_OPENMETEO_MODEL = OPENMETEO_MODEL_BEST
 
 # --- Endpoints ----------------------------------------------------------------
 WU_API_URL = "https://api.weather.com/v2/pws/observations/current"
@@ -61,6 +73,7 @@ CONF_API_KEY_SOURCE = "api_key_source"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_CITY = "city"
 CONF_FORECAST_SOURCE = "forecast_source"
+CONF_OPENMETEO_MODEL = "openmeteo_model"
 
 # Where the API key came from. ``legacy`` = migrated from <1.5 (origin unknown);
 # it behaves like ``auto``: the key may be re-discovered when it stops working.
@@ -100,6 +113,12 @@ ATTR_ELEVATION_M = "elevation_m"
 ATTR_CONDITION = "condition"
 ATTR_OBS_AGE_MIN = "observation_age_min"
 ATTR_STATION_ONLINE = "station_online"
+ATTR_TEMP_MAX_TODAY = "temperature_max_today"
+ATTR_TEMP_MIN_TODAY = "temperature_min_today"
+ATTR_GUST_MAX_TODAY = "wind_gust_max_today"
+ATTR_PRESSURE_CHANGE_3H = "pressure_change_3h"
+ATTR_PRESSURE_TENDENCY = "pressure_tendency"
+ATTR_WU_CALLS_TODAY = "wu_api_calls_today"
 
 # --- Update behaviour ------------------------------------------------------------
 # Forecast is fetched at most this often, independent of the (short) station
@@ -112,6 +131,29 @@ FORECAST_MAX_STALE = timedelta(hours=12)
 # max(OBS_MIN_STALE_MINUTES, OBS_STALE_FACTOR * scan_interval) minutes (F08).
 OBS_STALE_FACTOR = 3
 OBS_MIN_STALE_MINUTES = 20
+
+# Persistent per-entry state (daily extremes, pressure samples, forecast scores).
+STATE_STORE_VERSION = 1
+STATE_SAVE_DELAY = 30  # seconds; writes are debounced
+
+# --- Pressure tendency (F12) ---------------------------------------------------------
+PRESSURE_SAMPLE_WINDOW = timedelta(hours=4)
+PRESSURE_TREND_SPAN = timedelta(hours=3)
+PRESSURE_TREND_TOLERANCE = timedelta(minutes=40)  # how far a sample may be from "3 h ago"
+PRESSURE_TREND_THRESHOLD_HPA = 1.0  # |change over 3 h| below this = "steady"
+TENDENCY_RISING = "rising"
+TENDENCY_STEADY = "steady"
+TENDENCY_FALLING = "falling"
+PRESSURE_TENDENCIES = [TENDENCY_RISING, TENDENCY_STEADY, TENDENCY_FALLING]
+
+# --- Forecast self-scoring (F21) ---------------------------------------------------------
+SCORE_WINDOW_DAYS = 14  # rolling window of daily errors per source
+SCORE_MIN_SAMPLES = 3  # a source is only weighted once it has this many scored days
+SCORE_WEIGHT_OFFSET = 0.5  # weight = 1 / (MAE + offset): avoids infinite weight at MAE 0
+
+# --- Circuit breaker (S6) ----------------------------------------------------------------
+BREAKER_THRESHOLD = 3  # consecutive failures before a provider is skipped
+BREAKER_COOLDOWN = timedelta(minutes=10)
 
 # Network time budgets (seconds).
 TIMEOUT_OBSERVATION = 30

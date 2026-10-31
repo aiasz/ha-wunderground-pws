@@ -45,17 +45,20 @@ from .const import (
     CONF_API_KEY_SOURCE,
     CONF_CITY,
     CONF_FORECAST_SOURCE,
+    CONF_OPENMETEO_MODEL,
     CONF_SCAN_INTERVAL,
     CONF_STATION_ID,
     CONFIG_ENTRY_VERSION,
     DEFAULT_CITY,
     DEFAULT_FORECAST_SOURCE,
+    DEFAULT_OPENMETEO_MODEL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STATION_ID,
     DOMAIN,
     FORECAST_SOURCES,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    OPENMETEO_MODELS,
 )
 from .providers import wunderground as wu
 from .providers.base import ProviderAuthError, ProviderError, ProviderNoDataError
@@ -69,6 +72,14 @@ _SOURCE_SELECTOR = SelectSelector(
     SelectSelectorConfig(
         options=FORECAST_SOURCES,
         translation_key="forecast_source",
+        mode=SelectSelectorMode.DROPDOWN,
+    )
+)
+
+_MODEL_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=OPENMETEO_MODELS,
+        translation_key="openmeteo_model",
         mode=SelectSelectorMode.DROPDOWN,
     )
 )
@@ -320,6 +331,9 @@ class WundergroundPWSOptionsFlow(OptionsFlow):
                         CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
                         CONF_CITY: (user_input.get(CONF_CITY) or "").strip(),
                         CONF_FORECAST_SOURCE: user_input[CONF_FORECAST_SOURCE],
+                        CONF_OPENMETEO_MODEL: user_input.get(
+                            CONF_OPENMETEO_MODEL, DEFAULT_OPENMETEO_MODEL
+                        ),
                     },
                 )
 
@@ -335,6 +349,10 @@ class WundergroundPWSOptionsFlow(OptionsFlow):
                     CONF_FORECAST_SOURCE,
                     default=get_setting(entry, CONF_FORECAST_SOURCE, DEFAULT_FORECAST_SOURCE),
                 ): _SOURCE_SELECTOR,
+                vol.Optional(
+                    CONF_OPENMETEO_MODEL,
+                    default=get_setting(entry, CONF_OPENMETEO_MODEL, DEFAULT_OPENMETEO_MODEL),
+                ): _MODEL_SELECTOR,
             }
         )
         return self.async_show_form(

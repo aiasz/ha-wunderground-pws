@@ -1,6 +1,6 @@
 # Wunderground PWS – Home Assistant integration
 
-**Author: Aiasz · Version 1.5.0 · [Magyar README](README.md)**
+**Author: Aiasz · Version 1.6.0 · [Magyar README](README.md)**
 
 Shows the data of any [Weather Underground](https://www.wunderground.com/) personal weather station (PWS)
 in Home Assistant through the **official WU API**, in metric units, and adds a **multi-provider forecast**
@@ -13,8 +13,12 @@ in Home Assistant through the **official WU API**, in metric units, and adds a *
 - **Your own station's measurements**: temperature, feels-like, dew point, heat index / wind chill, humidity,
   pressure, wind (speed, gust, bearing, compass), precipitation (daily, rate), solar radiation, UV and derived
   values (cloud base, absolute humidity, wet-bulb temperature).
-- **Weather entity** with a daily forecast (7 days, or what the source provides).
+- **Weather entity** with a daily (7 days) **and hourly (72 h)** forecast.
 - **Multi-source forecast with fallback**: Weather Underground → MET Norway → Open-Meteo (or a single chosen source).
+- **Blend (consensus) mode**: all sources together; the integration scores each source against *your own station's measurements* and weights the more accurate one higher.
+- **Open-Meteo model choice**: automatic, ECMWF IFS, DWD ICON-EU.
+- **Today's min/max** temperature and gust, **pressure tendency** (rising / steady / falling).
+- **Diagnostics**: downloadable (redacted) diagnostics and a `wunderground_pws.refresh` service.
 - **English and Hungarian UI** – follows the Home Assistant language (entity names, options, wind direction).
 - **Station health**: `Station online` and `Observation age` diagnostic entities; glitchy readings are filtered out.
 - **Better "current condition"**: `clear-night`, snow/sleet, fog, strong wind, sky state from solar radiation.
@@ -39,7 +43,8 @@ Minimum Home Assistant version: **2024.12.0**.
 | API key | your key from the [WU account](https://www.wunderground.com/member/api-keys); **empty = demo mode** |
 | Update interval | 1–60 minutes (5 recommended) |
 | Forecast city | optional (e.g. `Kaposvár`); empty = the station's coordinates |
-| Forecast source | `auto` / WU only / MET Norway only / Open-Meteo only |
+| Forecast source | `auto` / `blend` / WU only / MET Norway only / Open-Meteo only |
+| Open-Meteo model | (options) automatic / ECMWF IFS / DWD ICON-EU / ICON seamless |
 
 ### Demo mode (no API key)
 With an empty key the integration tries to extract a public key embedded in the WU website and **validates it
@@ -60,14 +65,14 @@ asks you to re-authenticate. A key you typed yourself is never replaced automati
 | Forecast | MET Norway Locationforecast 2.0 (CC BY 4.0) | no |
 | Forecast, geocoding | Open-Meteo (CC BY 4.0) | no |
 
-Required attributions: see [CREDITS](CREDITS.md). The `forecast_source_used` attribute shows which source answered.
+Required attributions: see [CREDITS](CREDITS.md). Hourly data comes from Open-Meteo or MET Norway (the WU PWS API has no hourly forecast). The `forecast_source_used` attribute shows which source answered.
 
 ## Weather card
 
 ```yaml
 type: weather-forecast
 entity: weather.wunderground_pws_ikapos27_weather
-forecast_type: daily
+forecast_type: hourly   # or: daily
 ```
 
 ## Upgrading

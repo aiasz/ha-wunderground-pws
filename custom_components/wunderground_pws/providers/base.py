@@ -44,6 +44,10 @@ class ProviderError(Exception):
     """Generic provider failure (network, HTTP status, malformed payload)."""
 
 
+class ProviderTransientError(ProviderError):
+    """Temporary trouble (timeout, connection error, HTTP 5xx) - worth retrying."""
+
+
 class ProviderAuthError(ProviderError):
     """The API rejected the credentials (HTTP 401/403)."""
 

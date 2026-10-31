@@ -13,6 +13,7 @@ from .base import (
     ProviderInfo,
     ProviderNoDataError,
     ProviderRateLimitError,
+    ProviderTransientError,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "ProviderInfo",
     "ProviderNoDataError",
     "ProviderRateLimitError",
+    "ProviderTransientError",
 ]

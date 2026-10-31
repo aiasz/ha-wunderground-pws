@@ -26,6 +26,37 @@ class DailyForecastPoint(TypedDict, total=False):
     wind_speed: float | None  # km/h (daily maximum)
     wind_gust_speed: float | None  # km/h
     uv_index: float | None
+    sources: list[str]  # sources that contributed (blend only)
+
+
+class HourlyForecastPoint(TypedDict, total=False):
+    """One hour of forecast (metric; ``None`` = unknown)."""
+
+    datetime: str  # RFC 3339, UTC, start of the hour
+    temperature: float | None  # degC
+    apparent_temperature: float | None  # degC
+    precipitation: float | None  # mm in this hour
+    precipitation_probability: float | None  # %
+    condition: str | None  # Home Assistant condition (day/night aware)
+    cloud_coverage: float | None  # %
+    wind_speed: float | None  # km/h
+    wind_gust_speed: float | None  # km/h
+    wind_bearing: float | None  # degrees
+    pressure: float | None  # hPa
+    humidity: float | None  # %
+    dew_point: float | None  # degC
+    uv_index: float | None
+
+
+class ForecastBundle(TypedDict, total=False):
+    """Everything one forecast refresh produces."""
+
+    daily: list[DailyForecastPoint]
+    hourly: list[HourlyForecastPoint]
+    source: str  # source key of the daily data ("blend" for the consensus)
+    hourly_source: str
+    sources_used: list[str]
+    fetched_at: str  # ISO UTC
 
 
 def local_midnight_utc_iso(day: date, tz: tzinfo) -> str:
