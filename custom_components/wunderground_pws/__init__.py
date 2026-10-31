@@ -14,6 +14,7 @@ import logging
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
@@ -45,6 +46,9 @@ _REPO_URL = "github.com/aiasz/ha-wunderground-pws"
 
 
 SERVICE_REFRESH = "refresh"
+
+# This integration is config-entry only: it has no YAML configuration schema.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
