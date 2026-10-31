@@ -234,3 +234,29 @@ def test_circuit_breaker_opens_cools_down_and_recovers() -> None:
 
     breaker.record_success()
     assert breaker.allow(later) and breaker.failures == 0
+
+
+# --- today's range never narrower than what was measured -------------------------------------------
+
+
+def test_today_range_is_widened_by_measured_extremes() -> None:
+    from custom_components.wunderground_pws.blend import merge_observed_extremes
+
+    today = "2026-10-30T23:00:00+00:00"
+    tomorrow = "2026-10-31T23:00:00+00:00"
+    daily = [
+        {"datetime": today, "temperature": 8.0, "templow": 6.0},  # MET Norway: remaining hours only
+        {"datetime": tomorrow, "temperature": 9.0, "templow": 4.0},
+    ]
+    merge_observed_extremes(daily, today, observed_max=11.4, observed_min=3.2)
+    assert (daily[0]["temperature"], daily[0]["templow"]) == (11.4, 3.2)
+    assert (daily[1]["temperature"], daily[1]["templow"]) == (9.0, 4.0)  # other days untouched
+
+    # A forecast that is already wider stays as it is; missing values are filled.
+    wide = [{"datetime": today, "temperature": 15.0, "templow": 1.0}, {"datetime": tomorrow}]
+    merge_observed_extremes(wide, today, observed_max=11.4, observed_min=3.2)
+    assert (wide[0]["temperature"], wide[0]["templow"]) == (15.0, 1.0)
+    empty = [{"datetime": today}]
+    merge_observed_extremes(empty, today, observed_max=10.0, observed_min=2.0)
+    assert (empty[0]["temperature"], empty[0]["templow"]) == (10.0, 2.0)
+    merge_observed_extremes(empty, today, observed_max=None, observed_min=None)  # no-op

@@ -67,6 +67,12 @@ asks you to re-authenticate. A key you typed yourself is never replaced automati
 
 Required attributions: see [CREDITS](CREDITS.md). Hourly data comes from Open-Meteo or MET Norway (the WU PWS API has no hourly forecast). The `forecast_source_used` attribute shows which source answered.
 
+## Kaposvár and Hungary
+The defaults are tuned to the author's home town, **Kaposvár**: the setup form suggests station `IKAPOS27` and forecast city
+`Kaposvár` (both editable). The geocoding runs once and is cached; verified against live data, Kaposvár resolves to
+(46.3667, 17.8) and both Open-Meteo (automatic, ECMWF IFS, ICON-EU) and MET Norway forecasts parse correctly for it.
+Other Hungarian towns work the same way; official HungaroMet data is planned for v1.8.
+
 ## Weather card
 
 ```yaml

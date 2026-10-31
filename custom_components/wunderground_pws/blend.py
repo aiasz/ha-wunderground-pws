@@ -37,6 +37,30 @@ _MEAN_FIELDS = (
 )
 
 
+def merge_observed_extremes(
+    daily: list[DailyForecastPoint],
+    today_key: str,
+    observed_max: float | None,
+    observed_min: float | None,
+) -> list[DailyForecastPoint]:
+    """Widen *today's* forecast range by what the station has already measured.
+
+    Some sources (MET Norway) only return the *remaining* hours of the current day,
+    so their "today" maximum can be lower than what was already reached in the
+    morning. The real daily maximum can never be below the measured maximum (nor
+    the minimum above the measured minimum). Other days are left untouched.
+    """
+    for point in daily:
+        if point.get("datetime") != today_key:
+            continue
+        high, low = point.get("temperature"), point.get("templow")
+        if observed_max is not None and (high is None or observed_max > high):
+            point["temperature"] = round(observed_max, 1)
+        if observed_min is not None and (low is None or observed_min < low):
+            point["templow"] = round(observed_min, 1)
+    return daily
+
+
 def weights_from_mae(mae: dict[str, float | None]) -> dict[str, float] | None:
     """Turn per-source mean absolute errors into blend weights.
 

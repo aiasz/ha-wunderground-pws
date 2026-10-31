@@ -59,6 +59,7 @@ from .const import (
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
     OPENMETEO_MODELS,
+    SUGGESTED_CITY,
 )
 from .providers import wunderground as wu
 from .providers.base import ProviderAuthError, ProviderError, ProviderNoDataError
@@ -164,7 +165,9 @@ class WundergroundPWSConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
                 ): _scan_interval_validator(),
-                vol.Optional(CONF_CITY, default=DEFAULT_CITY): str,
+                vol.Optional(
+                    CONF_CITY, description={"suggested_value": SUGGESTED_CITY}, default=DEFAULT_CITY
+                ): str,
                 vol.Optional(
                     CONF_FORECAST_SOURCE, default=DEFAULT_FORECAST_SOURCE
                 ): _SOURCE_SELECTOR,

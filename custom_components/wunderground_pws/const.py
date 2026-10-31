@@ -22,6 +22,8 @@ DEFAULT_SCAN_INTERVAL = 5  # minutes
 MIN_SCAN_INTERVAL = 1
 MAX_SCAN_INTERVAL = 60
 DEFAULT_CITY = ""
+# Pre-filled (not forced) in the setup form: the author's home town, Kaposvár.
+SUGGESTED_CITY = "Kaposvár"
 
 # --- Forecast sources --------------------------------------------------------
 FORECAST_SOURCE_AUTO = "auto"  # WU -> MET.no -> Open-Meteo (fallback chain)

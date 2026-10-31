@@ -26,7 +26,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .blend import blend_daily, weights_from_mae
+from .blend import blend_daily, merge_observed_extremes, weights_from_mae
 from .const import (
     ATTR_LAT,
     ATTR_LON,
@@ -232,6 +232,7 @@ class ForecastCoordinator(DataUpdateCoordinator[ForecastBundle]):
                     self.stale = False
             return self.data
 
+        self._apply_observed_extremes(bundle)
         self.stale = False
         self._retry_at = None
         self.fetched_at = now
@@ -240,6 +241,15 @@ class ForecastCoordinator(DataUpdateCoordinator[ForecastBundle]):
         # The "current condition" at night comes from the forecast: refresh it now.
         self.observation.async_recompute_condition()
         return bundle
+
+    def _apply_observed_extremes(self, bundle: ForecastBundle) -> None:
+        """Today's forecast range may not be narrower than what the station measured."""
+        extremes = self.state_store.state.extremes
+        today = dt_util.now().date()
+        if extremes.day != today.isoformat():
+            return
+        key = local_midnight_utc_iso(today, dt_util.get_default_time_zone())
+        merge_observed_extremes(bundle.get("daily") or [], key, extremes.tmax, extremes.tmin)
 
     # ------------------------------------------------------------------
     # Coordinates (city geocoding, cached - B08)
